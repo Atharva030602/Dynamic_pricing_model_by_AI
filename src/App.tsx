@@ -63,7 +63,7 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
                 key={t.id}
                 href={`#/studio/${t.id}`}
                 aria-current={tab === t.id ? 'page' : undefined}
-                className={cx('h-9 px-3.5 rounded-[9px] text-[14.5px] font-medium flex items-center gap-2', tab === t.id ? 'bg-surface text-ink border border-line' : 'text-ink-2 hover:text-ink')}
+                className={cx('h-9 px-3 rounded-[9px] text-[14.5px] font-medium flex items-center gap-2 whitespace-nowrap', tab === t.id ? 'bg-surface text-ink border border-line' : 'text-ink-2 hover:text-ink')}
               >
                 {t.step && <span className={cx('grid place-items-center w-5 h-5 rounded-full text-[11.5px]', tab === t.id ? 'bg-ink text-white' : 'bg-line text-ink-2')}>{t.step}</span>}
                 {t.label}
@@ -71,15 +71,15 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <a href="#/" className="text-[14px] text-ink-2 hover:text-ink font-medium">Reader home</a>
-            <span className="hidden sm:flex items-center gap-2 pl-3 border-l border-line">
+            <a href="#/" className="hidden lg:inline text-[14px] text-ink-2 hover:text-ink font-medium whitespace-nowrap">Reader home</a>
+            <span className="hidden xl:flex items-center gap-2 pl-3 border-l border-line">
               <Avatar name={me.name} hue={me.avatarHue} size={30} />
               <span className="leading-tight">
-                <span className="block text-[14px] font-medium">{me.name}{creatorSession === 'demo' && <span className="ml-1.5 text-[11px] rounded-full bg-human-wash text-human-ink px-1.5 py-0.5 font-semibold">Demo</span>}</span>
+                <span className="block text-[14px] font-medium whitespace-nowrap">{me.name}{creatorSession === 'demo' && <span className="ml-1.5 text-[11px] rounded-full bg-human-wash text-human-ink px-1.5 py-0.5 font-semibold">Demo</span>}</span>
                 <Stars value={rating.stars} size={11} className="text-[11.5px]" />
               </span>
             </span>
-            <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer">Sign out</button>
+            <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer whitespace-nowrap">Sign out</button>
           </div>
         </div>
       </header>
