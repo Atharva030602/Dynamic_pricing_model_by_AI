@@ -293,7 +293,7 @@ export function valuateFeatures(f: Features, creator: Creator, withSuggestions =
       verdict: O >= 70 ? 'New information others don’t have' : O >= 45 ? 'Some original detail' : 'Mostly what’s already out there',
       detail: [
         `${f.numbers} figures, ${f.entities} named people/companies, ${f.quotes} direct quotes`,
-        f.firstHand ? `${f.firstHand} first-hand signals (documents seen, own tests, own data)` : 'No first-hand material yet (documents, own tests, own data)',
+        f.firstHand ? `${f.firstHand} first-hand signal${f.firstHand === 1 ? '' : 's'} (documents seen, own tests, own data)` : 'No first-hand material yet (documents, own tests, own data)',
         ...(f.filler ? [`${f.filler} generic phrases lower this`] : []),
         ...(f.commoditySimilarity > 0.15 ? ['Reads like existing articles'] : []),
       ],
@@ -400,5 +400,9 @@ export function applyNudges(v: Valuation, creator: Creator, nudges: Partial<Reco
     timeMarkers: f.timeMarkers * ratio('timeliness'),
     topics: f.topics.map((t) => ({ ...t, topic: { ...t.topic, demand: clamp(t.topic.demand * ratio('demand')) } })),
   }
-  return valuateFeatures(nf, creator)
+  const out = valuateFeatures(nf, creator)
+  // keep the plain-language evidence (real counts) from the un-nudged text
+  for (const k of Object.keys(out.signals) as SignalKey[]) out.signals[k] = { ...out.signals[k], detail: v.signals[k].detail }
+  out.features = v.features
+  return out
 }

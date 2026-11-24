@@ -850,7 +850,7 @@ function valuateFeatures(f, creator, withSuggestions = true) {
       verdict: O >= 70 ? "New information others don\u2019t have" : O >= 45 ? "Some original detail" : "Mostly what\u2019s already out there",
       detail: [
         `${f.numbers} figures, ${f.entities} named people/companies, ${f.quotes} direct quotes`,
-        f.firstHand ? `${f.firstHand} first-hand signals (documents seen, own tests, own data)` : "No first-hand material yet (documents, own tests, own data)",
+        f.firstHand ? `${f.firstHand} first-hand signal${f.firstHand === 1 ? "" : "s"} (documents seen, own tests, own data)` : "No first-hand material yet (documents, own tests, own data)",
         ...f.filler ? [`${f.filler} generic phrases lower this`] : [],
         ...f.commoditySimilarity > 0.15 ? ["Reads like existing articles"] : []
       ]
