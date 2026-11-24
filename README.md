@@ -37,6 +37,16 @@ Fastest path: open **`#/studio/demo`** and press **Run the demo** (open `#/` in 
 5. Switch to **An AI system** and click **Run the calls**. FinPilot (a trading agent) searches, previews free, gets `402 access_required` with offers, buys a quote licence and retrieves the text with attribution rules.
 6. **Earnings.** FinPilot's purchase is at the top of *Latest activity*. Accept or decline Halcyon Labs' training request, see derivatives paying back, and see the report under review with only that piece's earnings partly held.
 
+### V3: separate journeys for readers and creators
+
+- **Reader onboarding** (`#/welcome`) is a short conversation that adapts: what brings you here, then topic chips for the areas you picked pop in, three this-or-that choices, a free-text box read by the relevance engine ("tell us in your own words"), optional connected accounts (simulated), reading rhythm and a Premium report choice. A side panel shows the interest profile forming and the feed it produces.
+- **Creator sign-up** (`#/creator/join`) has six layers: you, your work (formats and categories), your channels (we "study" connected YouTube/Instagram/X/LinkedIn/Substack accounts: topics, engagement, audience regions, best time to post, a starting price), audience and goals, default AI terms, and email verification.
+- **Creator Studio has its own sign-in** (`#/studio`), even for a signed-in reader; after that the browser goes straight in. A demo-creator option opens Riya's busy studio.
+- **Creator rating (1–5 stars)**, evidence-based: credibility 30%, writing quality 25%, reader response 20%, AI demand 15%, consistency 10%. Stars = 1 + 4 × weighted score ÷ 100. Shown on bylines, the article page and the hub with the weakest part and a tip (`src/engine/rating.ts`).
+- **Studio:** blank "Create a new post"; formats Post, Article, Video, Data in any mix; import from PDF/.txt/.md in the browser (pdf.js); propose a new category, checked by `/api/category` (rules, then Gemini); licence switch For people / For AI / For both with uses grouped by audience; Promote with a daily budget; audience analytics (regions, age groups, gender, what readers do, AI buyers' fields, followers gained per post, reader questions) and per-post analysis.
+- **Premium reading report** (`#/report`): weekly or monthly email preview with minutes read, reading by day, topics followed, critical information, stories missed and writers read most.
+- **Figma:** `figma/` has the screens as HTML for an HTML-to-Figma plugin and a Scripter script that wires the prototype. See `figma/README.md`.
+
 ### V2 additions in one paragraph each
 
 - **Personalised feed.** `rankForUser()` scores each story on followed keywords (direct), followed keywords reached through the relation graph (indirect), taste learned from likes and saves, freshness and popularity. Every card says why it is shown ("Because you follow Football").
