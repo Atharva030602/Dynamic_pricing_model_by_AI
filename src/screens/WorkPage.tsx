@@ -3,7 +3,7 @@ import { DEMO_AGENTS, handleMcp, type McpCtx } from '../engine/mcp'
 import { PERMISSION_LABEL, USE_META, inr, summarise, toMachineJson, type UseKey } from '../engine/licence'
 import { shortHash, verifySeal, wordDiff, type DiffPart } from '../engine/seal'
 import { useStore, type Work } from '../store'
-import { Avatar, Badge, Button, Icon, JsonView, Photo, Segmented, cx, fmtDate, useRoute } from '../ui/kit'
+import { Avatar, Badge, Button, Icon, JsonView, Photo, Segmented, Stars, cx, fmtDate, useRoute } from '../ui/kit'
 import { decorate } from '../data/meta'
 import { Engage } from '../ui/Engage'
 import { AiCompanion, Background, Comments, InShort, KeywordChips, LatestHeadlines, OtherTopics, Related } from './WorkExtras'
@@ -59,6 +59,9 @@ function PersonView({ w, c, sealOk, focusComments }: { w: Work; c: ReturnType<ty
   const { addEvent, seals, fileReport } = useStore()
   const [unlocked, setUnlocked] = useState(w.licence.uses.read.permission === 'free')
   useEffect(() => setUnlocked(w.licence.uses.read.permission === 'free'), [w.id])
+  const { recordRead, ratingOf } = useStore()
+  const rating = ratingOf(c.id)
+  useEffect(() => { const t0 = Date.now(); return () => { const s = (Date.now() - t0) / 1000; if (s > 3) recordRead(w.id, s) } }, [w.id])
   const [verify, setVerify] = useState<{ ok: boolean; hashMatches: boolean; signatureValid: boolean } | null>(null)
   const seal = seals[w.id]
   useEffect(() => { if (seal) verifySeal(seal, w.body).then(setVerify) }, [seal, w.body])
@@ -85,6 +88,7 @@ function PersonView({ w, c, sealOk, focusComments }: { w: Work; c: ReturnType<ty
             <span>
               <span className="block font-semibold text-[15px]">{c.name}</span>
               <span className="block text-[13px] text-muted">{c.beat}, {c.location}</span>
+              <a href="#/" onClick={(e) => { e.preventDefault(); document.getElementById('rating-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}><Stars value={ratingOf(c.id).stars} size={12} className="text-[12.5px]" /></a>
             </span>
           </span>
           <span className="text-[13.5px] text-ink-2">Published {fmtDate(w.publishedAt, { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
@@ -148,6 +152,15 @@ function PersonView({ w, c, sealOk, focusComments }: { w: Work; c: ReturnType<ty
           <p className="text-[13px] text-ink-2 font-serif leading-relaxed mt-2 pt-3 border-t border-line-2">{summarise(w.licence, first)}</p>
         </section>
 
+        <section id="rating-box" className="panel p-5" aria-labelledby="rb-h">
+          <div className="flex items-center justify-between"><h2 id="rb-h" className="text-[15px] font-semibold">About {c.name.split(' ')[0]}</h2><Stars value={rating.stars} size={14} /></div>
+          <ul className="mt-3 space-y-2">
+            {rating.parts.map((p) => (
+              <li key={p.key} className="grid grid-cols-[120px_1fr_28px] items-center gap-2 text-[13px]"><span>{p.label}</span><span className="h-1.5 rounded-full bg-line overflow-hidden"><span className="block h-full bg-ink rounded-full" style={{ width: `${p.score}%` }} /></span><span className="tab text-right text-muted">{p.score}</span></li>
+            ))}
+          </ul>
+          <p className="text-[12px] text-muted mt-3">Rating from evidence: credibility, writing quality, reader response, AI demand and consistency. Not from votes.</p>
+        </section>
         <Background w={d} />
         {sealOk && <SealBox w={w} verify={verify} />}
         <LatestHeadlines exclude={w.id} />

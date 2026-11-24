@@ -9,6 +9,7 @@ import review from '../api/review.js'
 import robots from '../api/robots.js'
 import insight from '../api/insight.js'
 import posts from '../api/posts.js'
+import category from '../api/category.js'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
@@ -21,6 +22,7 @@ app.get('/api/licence', wrap(licence))
 app.all('/api/review', wrap(review))
 app.all('/api/insight', wrap(insight))
 app.all('/api/posts', wrap(posts))
+app.all('/api/category', wrap(category))
 app.get('/api/robots', wrap(robots))
 app.get('/robots.txt', wrap(robots))
 app.listen(8787, () => console.log('api on :8787'))

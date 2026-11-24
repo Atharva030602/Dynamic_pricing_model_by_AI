@@ -196,3 +196,19 @@ export const ago = (iso: string) => {
   if (s < 86400) return `${Math.round(s / 3600)} h ago`
   return fmtDate(iso)
 }
+
+/** 5-star display; fractional stars are clipped. The number is always shown next to it. */
+export function Stars({ value, size = 14, showValue = true, className }: { value: number; size?: number; showValue?: boolean; className?: string }) {
+  return (
+    <span className={cx('inline-flex items-center gap-1', className)} aria-label={`${value.toFixed(1)} out of 5`}>
+      <span className="relative inline-block" style={{ width: size * 5, height: size }} aria-hidden>
+        <span className="absolute inset-0 flex text-line">{[0, 1, 2, 3, 4].map((i) => <StarSvg key={i} size={size} />)}</span>
+        <span className="absolute inset-0 flex text-human overflow-hidden" style={{ width: `${(value / 5) * 100}%` }}>{[0, 1, 2, 3, 4].map((i) => <StarSvg key={i} size={size} />)}</span>
+      </span>
+      {showValue && <span className="text-[0.92em] font-semibold tab">{value.toFixed(1)}</span>}
+    </span>
+  )
+}
+function StarSvg({ size }: { size: number }) {
+  return <svg viewBox="0 0 20 20" width={size} height={size} className="shrink-0"><path fill="currentColor" d="M10 1.6l2.47 5.3 5.8.68-4.3 3.96 1.15 5.73L10 14.4l-5.12 2.87 1.15-5.73-4.3-3.96 5.8-.68z" /></svg>
+}

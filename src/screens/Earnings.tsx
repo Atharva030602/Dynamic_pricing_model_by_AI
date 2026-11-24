@@ -4,7 +4,8 @@ import { CREATOR_SHARE, MONTH_START, type Derivative, type UsageEvent } from '..
 import { USE_META, inr, type UseKey } from '../engine/licence'
 import { valuate } from '../engine/valuation'
 import { useStore, type Work } from '../store'
-import { Badge, Button, Icon, ago, cx, fmtDate, fmtTime } from '../ui/kit'
+import { Badge, Button, Icon, ago, cx, fmtDate, fmtTime, useRoute } from '../ui/kit'
+import { AudiencePanel } from './Audience'
 
 const USE_COLOR: Record<UseKey, string> = { read: 'bg-use-read', ai_quote: 'bg-use-quote', ai_train: 'bg-use-train', republish: 'bg-use-republish' }
 const USE_SHORT: Record<UseKey, string> = { read: 'Reading', ai_quote: 'AI answers', ai_train: 'AI training', republish: 'Republishing & derivatives' }
@@ -12,7 +13,8 @@ const net = (x: number) => x * CREATOR_SHARE
 
 export default function Earnings() {
   const { me, works, events, buyers, reports, derivatives, requests, respondRequest, claimDerivative } = useStore()
-  const [workFilter, setWorkFilter] = useState('all')
+  const { params } = useRoute()
+  const [workFilter, setWorkFilter] = useState(params.get('work') || 'all')
   const [showTable, setShowTable] = useState(false)
   const mine = works.filter((w) => w.creatorId === me.id)
   const ids = new Set(mine.map((w) => w.id))
@@ -71,7 +73,7 @@ export default function Earnings() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[26px] font-semibold tracking-[-0.01em]">Earnings</h1>
+          <h1 className="text-[26px] font-semibold tracking-[-0.01em]">{workFilter === 'all' ? 'Earnings and audience' : 'Post analysis'}</h1>
           <p className="text-[14px] text-ink-2">{fmtDate(MONTH_START.toISOString(), { day: 'numeric', month: 'long' })} to today. Amounts are your 85% share.</p>
         </div>
         <label className="flex items-center gap-2 text-[13.5px] text-ink-2">
@@ -162,6 +164,8 @@ export default function Earnings() {
           <p className="text-[12.5px] text-muted mt-4 pt-3 border-t border-line-2">An AI answer pays about a tenth of a read but happens far more often. Training pays most per deal, once.</p>
         </div>
       </section>
+
+      <AudiencePanel evs={evs} works={workFilter === 'all' ? mine : mine.filter((w) => w.id === workFilter)} scope={`${me.id}:${workFilter}`} />
 
       <section className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
         <div className="panel p-5">

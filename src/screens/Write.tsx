@@ -5,7 +5,8 @@ import { inr } from '../engine/licence'
 import { useStore, type Disclosure } from '../store'
 import { CATEGORY_LIST, type Category } from '../data/v2'
 import { guessCategory } from '../data/meta'
-import { Badge, Button, Icon, Meter, Segmented, cx, go } from '../ui/kit'
+import { Badge, Button, Icon, Meter, Segmented, cx, go, useRoute } from '../ui/kit'
+import { importFile } from '../lib/importDoc'
 
 const AI_USES = ['research', 'drafting', 'translation', 'proofreading', 'images']
 
@@ -21,8 +22,46 @@ interface AiReview {
   error?: string
 }
 
+const FORMATS = [
+  { id: 'post', label: 'Post' },
+  { id: 'article', label: 'Article' },
+  { id: 'video', label: 'Video' },
+  { id: 'data', label: 'Data' },
+] as const
+
+function kindFor(f: string[]): 'article' | 'video' | 'dataset' {
+  if (f.includes('data') && !f.includes('article') && !f.includes('post')) return 'dataset'
+  if (f.includes('video') && !f.includes('article')) return 'video'
+  return 'article'
+}
+
 export default function Write() {
-  const { draft, setDraft, loadSample, valuation: rules, me } = useStore()
+  const { draft, setDraft, loadSample, valuation: rules, me, newDraft, customCategories, addCustomCategory } = useStore()
+  const { params } = useRoute()
+  useEffect(() => { if (params.get('new') === '1') { newDraft(); setReview(null); go('/studio/write') } }, [params.get('new')])
+  const formats = draft.formats || [draft.kind === 'dataset' ? 'data' : draft.kind]
+  const setFormats = (f: string[]) => setDraft({ formats: f, kind: kindFor(f) })
+  const empty = !draft.title.trim() && !draft.body.trim()
+  const [importing, setImporting] = useState(false)
+  const [importErr, setImportErr] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const onFile = async (f?: File) => {
+    if (!f) return
+    setImporting(true); setImportErr('')
+    try { const d = await importFile(f); setDraft({ title: d.title, dek: d.dek, body: d.body, importedFrom: `${d.name}${d.pages ? `, ${d.pages} pages` : ''}`, sampleId: undefined }); setReview(null) }
+    catch (e) { setImportErr(e instanceof Error ? e.message : 'Couldn’t read that file.') }
+    finally { setImporting(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+  const [newCat, setNewCat] = useState<string | null>(null)
+  const [catCheck, setCatCheck] = useState<{ ok: boolean; reason: string; source?: string; suggest?: string } | null>(null)
+  const [checking, setChecking] = useState(false)
+  const checkCategory = async () => {
+    if (!newCat?.trim()) return
+    setChecking(true); setCatCheck(null)
+    const r = await fetch('/api/category', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: newCat, title: draft.title, body: `${draft.dek} ${draft.body}` }) }).then((x) => x.json()).catch(() => ({ ok: false, reason: 'Couldn’t reach the checker. Try again.' }))
+    setCatCheck(r); setChecking(false)
+    if (r.ok) { addCustomCategory(newCat.trim()); setDraft({ customCategory: newCat.trim() }) }
+  }
   const [review, setReview] = useState<AiReview | null>(null)
   const [loading, setLoading] = useState(false)
   const textKey = `${draft.title}\n${draft.body}`
@@ -54,36 +93,70 @@ export default function Write() {
     <div className="grid lg:grid-cols-[minmax(0,1fr)_400px] gap-6 items-start">
       <section aria-label="Editor" className="min-w-0">
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <Segmented
-            label="Kind of work"
-            value={draft.kind}
-            onChange={(k) => setDraft({ kind: k })}
-            options={[{ value: 'article', label: 'Article' }, { value: 'video', label: 'Video' }, { value: 'dataset', label: 'Dataset' }]}
-          />
+          <div className="flex items-center gap-1.5" role="group" aria-label="Format, pick one or more">
+            <span className="text-[13px] text-muted mr-1">Format</span>
+            {FORMATS.map((f) => {
+              const on = formats.includes(f.id)
+              return <button key={f.id} aria-pressed={on} onClick={() => setFormats(on ? (formats.length > 1 ? formats.filter((x) => x !== f.id) : formats) : [...formats, f.id])} className={cx('h-8 px-3 rounded-full text-[13px] border font-medium cursor-pointer', on ? 'bg-ink text-white border-ink' : 'bg-surface border-line text-ink-2 hover:border-faint')}>{on ? '✓ ' : ''}{f.label}</button>
+            })}
+          </div>
           <label className="flex items-center gap-2 text-[13px] text-muted">
             Category
-            <select value={draft.category || ''} onChange={(e) => setDraft({ category: (e.target.value || undefined) as Category | undefined })} className="h-8 rounded-[8px] border border-line bg-surface px-2 text-[13.5px] text-ink">
+            <select value={newCat !== null ? '__new' : draft.customCategory ? `c:${draft.customCategory}` : draft.category || ''} onChange={(e) => {
+              const v = e.target.value
+              if (v === '__new') { setNewCat(''); setCatCheck(null); return }
+              setNewCat(null)
+              if (v.startsWith('c:')) setDraft({ customCategory: v.slice(2) })
+              else setDraft({ category: (v || undefined) as Category | undefined, customCategory: undefined })
+            }} className="h-8 rounded-[8px] border border-line bg-surface px-2 text-[13.5px] text-ink">
               <option value="">Auto: {guessCategory(`${draft.title} ${draft.dek} ${draft.body}`)}</option>
               {CATEGORY_LIST.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
+              {customCategories.map((c) => <option key={c} value={`c:${c}`}>{c} (yours)</option>)}
+              <option value="__new">+ New category…</option>
             </select>
           </label>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[13px] text-muted mr-1">Try</span>
-            {SAMPLES.filter((s) => s.id !== 'scoop').map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { loadSample(s.id); setReview(null) }}
-                title={s.hint}
-                className={cx('h-8 px-3 rounded-full text-[13px] border cursor-pointer', draft.sampleId === s.id ? 'bg-ink text-white border-ink' : 'bg-surface border-line text-ink-2 hover:border-faint')}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          <span className="ml-auto flex items-center gap-2">
+            <input ref={fileRef} type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" className="sr-only" id="imp" onChange={(e) => onFile(e.target.files?.[0])} />
+            <label htmlFor="imp" className="h-8 px-3 rounded-[8px] border border-line text-[13px] font-medium grid place-items-center cursor-pointer hover:border-ink">{importing ? 'Reading file…' : 'Import PDF or text'}</label>
+            <button onClick={() => { newDraft(); setReview(null) }} className="h-8 px-3 rounded-[8px] border border-line text-[13px] font-medium cursor-pointer hover:border-ink">New post</button>
+          </span>
         </div>
+        {newCat !== null && (
+          <form className="pop-in panel p-4 mb-4 flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); checkCategory() }}>
+            <label className="flex-1 min-w-[220px]"><span className="text-[13.5px] font-semibold">Name the new category</span>
+              <input autoFocus value={newCat} onChange={(e) => { setNewCat(e.target.value); setCatCheck(null) }} placeholder="e.g. Space, Education, Health policy" className="mt-1 h-10 w-full rounded-[10px] border border-line px-3 text-[15px] outline-none focus:border-ink" /></label>
+            <Button size="sm" variant="primary" disabled={checking || newCat.trim().length < 3}>{checking ? 'Checking…' : 'Run AI check'}</Button>
+            <Button size="sm" type="button" onClick={() => { setNewCat(null); setCatCheck(null) }}>Cancel</Button>
+            <p className="basis-full text-[12.5px] text-muted">The check makes sure the name is allowed, isn’t a duplicate of an existing category, and that your piece is actually about it.</p>
+            {catCheck && <p className={cx('basis-full text-[14px] rounded-[10px] p-3', catCheck.ok ? 'bg-good-wash text-good' : 'bg-bad-wash text-bad')}>{catCheck.ok ? `✓ Added “${newCat}”. ` : '✗ Not approved. '}{catCheck.reason}{catCheck.suggest && <button type="button" className="ml-2 underline cursor-pointer" onClick={() => { setDraft({ category: catCheck.suggest as Category, customCategory: undefined }); setNewCat(null) }}>Use {catCheck.suggest}</button>}</p>}
+            {catCheck?.ok && <Button size="sm" type="button" onClick={() => setNewCat(null)}>Done</Button>}
+          </form>
+        )}
+        {importErr && <p className="mb-3 text-[14px] text-bad rounded-[10px] bg-bad-wash p-3">{importErr}</p>}
+        {draft.importedFrom && !empty && <p className="mb-3 text-[13px] text-muted">Imported from {draft.importedFrom}. Check the headline and standfirst we picked.</p>}
+        {empty && (
+          <div className="pop-in panel p-6 mb-4">
+            <h2 className="font-serif text-[26px] font-medium">Start a new post</h2>
+            <p className="text-[14.5px] text-ink-2 mt-1">Pick the format above (one or a mix), then write below, or start from a file.</p>
+            <div className="grid sm:grid-cols-3 gap-3 mt-4">
+              <label htmlFor="imp" className="rounded-[12px] border border-line p-4 cursor-pointer hover:border-ink"><span className="block text-[15px] font-semibold">Import a PDF</span><span className="block text-[13px] text-muted mt-0.5">Or a .txt or .md file. Read in your browser, never uploaded.</span></label>
+              <button onClick={() => document.getElementById('ed-title')?.focus()} className="rounded-[12px] border border-line p-4 text-left cursor-pointer hover:border-ink"><span className="block text-[15px] font-semibold">Write from scratch</span><span className="block text-[13px] text-muted mt-0.5">The value updates as you type.</span></button>
+              <div className="rounded-[12px] border border-line p-4"><span className="block text-[15px] font-semibold">See an example</span>
+                <span className="flex flex-wrap gap-1.5 mt-2">{SAMPLES.filter((x) => x.id !== 'scoop').map((x) => <button key={x.id} onClick={() => { loadSample(x.id); setReview(null) }} title={x.hint} className="h-7 px-2.5 rounded-full border border-line text-[12.5px] cursor-pointer hover:border-ink">{x.label}</button>)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {formats.includes('video') && (
+          <div className="panel p-4 mb-4 grid sm:grid-cols-[1fr_160px] gap-3">
+            <label><span className="text-[13.5px] font-semibold">Video link</span><input placeholder="https://… (your upload or channel link)" className="mt-1 h-10 w-full rounded-[10px] border border-line px-3 text-[14.5px]" /></label>
+            <label><span className="text-[13.5px] font-semibold">Length</span><input placeholder="e.g. 14 min" className="mt-1 h-10 w-full rounded-[10px] border border-line px-3 text-[14.5px]" /></label>
+            <p className="sm:col-span-2 text-[12.5px] text-muted">We value a video from its description and transcript below. Paste the transcript for a fuller estimate.</p>
+          </div>
+        )}
 
         <div className="panel px-5 md:px-10 pt-8 pb-6">
-          <AutoText value={draft.title} onChange={(t) => setDraft({ title: t })} placeholder="Headline" className="editor-title text-[30px] md:text-[38px] leading-[1.12] text-ink" label="Headline" />
+          <AutoText id="ed-title" value={draft.title} onChange={(t) => setDraft({ title: t })} placeholder="Headline" className="editor-title text-[30px] md:text-[38px] leading-[1.12] text-ink" label="Headline" />
           <AutoText value={draft.dek} onChange={(t) => setDraft({ dek: t })} placeholder="One sentence: what's new here?" className="mt-3 font-serif text-[19px] md:text-[21px] leading-snug text-ink-2" label="Standfirst" />
           <div className="my-6 h-px bg-line-2" />
           <AutoText
@@ -343,7 +416,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (b: boolean) =
   )
 }
 
-function AutoText({ value, onChange, placeholder, className, label }: { value: string; onChange: (s: string) => void; placeholder: string; className?: string; label: string }) {
+function AutoText({ value, onChange, placeholder, className, label, id }: { value: string; onChange: (s: string) => void; placeholder: string; className?: string; label: string; id?: string }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
     const el = ref.current
@@ -354,6 +427,7 @@ function AutoText({ value, onChange, placeholder, className, label }: { value: s
   return (
     <textarea
       ref={ref}
+      id={id}
       aria-label={label}
       value={value}
       placeholder={placeholder}

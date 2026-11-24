@@ -4,10 +4,18 @@ import { shortHash } from '../engine/seal'
 import { useStore, type Work } from '../store'
 import { Badge, Button, Icon, JsonView, Segmented, cx, go } from '../ui/kit'
 
-const ORDER: UseKey[] = ['read', 'ai_quote', 'ai_train', 'republish']
 
 export default function LicenceBuilder() {
-  const { licence, setLicence, applyPreset, valuation: v, draft, me, publish } = useStore()
+  const { licence, setLicence, applyPreset, valuation: v, draft, me, publish, promote } = useStore()
+  const [promo, setPromo] = useState<{ on: boolean; perDay: number; days: number }>({ on: false, perDay: 100, days: 7 })
+  const audience: 'people' | 'ai' | 'both' = licence.uses.ai_quote.permission === 'no' && licence.uses.ai_train.permission === 'no' ? 'people' : licence.uses.read.permission === 'ask' ? 'ai' : 'both'
+  const setAudience = (a: 'people' | 'ai' | 'both') => {
+    if (a === 'both') return applyPreset('paid_both')
+    const u = { ...licence.uses }
+    if (a === 'people') { u.ai_quote = { ...u.ai_quote, permission: 'no' }; u.ai_train = { ...u.ai_train, permission: 'no' }; if (u.read.permission === 'ask') u.read = { ...u.read, permission: 'paid', price: v.prices.read } }
+    else { u.read = { ...u.read, permission: 'ask' }; u.ai_quote = { ...u.ai_quote, permission: 'paid', price: v.prices.quote }; u.ai_train = { ...u.ai_train, permission: 'paid', price: v.prices.train } }
+    setLicence({ ...licence, presetId: 'custom', uses: u })
+  }
   const [startedAt] = useState(() => Date.now())
   const [elapsed, setElapsed] = useState(0)
   const [done, setDone] = useState<Work | null>(null)
@@ -31,6 +39,7 @@ export default function LicenceBuilder() {
   const onPublish = async () => {
     setBusy(true)
     const w = await publish()
+    if (promo.on) promote(w.id, promo.perDay, promo.days)
     setBusy(false)
     setDone(w)
   }
@@ -47,6 +56,21 @@ export default function LicenceBuilder() {
           <Button variant="ghost" size="sm" onClick={() => applyPreset(licence.presetId === 'custom' ? 'paid_both' : licence.presetId)}>Reset to suggested</Button>
         </div>
       </div>
+
+      <section aria-label="Who is this piece for" className="panel p-4 mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex-1 min-w-[240px]">
+          <h2 className="text-[15px] font-semibold">Who is this piece for?</h2>
+          <p className="text-[13px] text-muted">One switch sets sensible terms. Fine-tune each use below.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Audience">
+          {([['people', 'For people', 'Readers only. AI may not quote or train.'], ['ai', 'For AI', 'Licensed to AI systems. People ask first.'], ['both', 'For both', 'Readers pay per read, AI pays per use.']] as const).map(([k, t, d]) => (
+            <button key={k} role="radio" aria-checked={audience === k} onClick={() => setAudience(k)} className={cx('rounded-[12px] border p-3 text-left w-[170px] cursor-pointer', audience === k ? 'border-ink ring-1 ring-ink bg-paper' : 'border-line hover:border-faint')}>
+              <span className="flex items-center gap-1.5 text-[14.5px] font-semibold">{k !== 'ai' && <Icon.person className="text-human" />}{k !== 'people' && <Icon.machine className="text-machine" />}{t}</span>
+              <span className="block text-[12px] text-muted mt-1 leading-snug">{d}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section aria-label="Start from a preset" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
         {PRESETS.map((p) => {
@@ -71,16 +95,39 @@ export default function LicenceBuilder() {
       </section>
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_460px] gap-6 items-start">
-        <section aria-label="Uses" className="panel divide-y divide-line-2">
-          {ORDER.map((k) => (
+        <div className="flex flex-col gap-4">
+        {([['For people', 'human', ['read', 'republish']], ['For AI', 'machine', ['ai_quote', 'ai_train']]] as const).map(([t, tone, keys]) => (
+        <section key={t} aria-label={t} className="panel divide-y divide-line-2">
+          <h2 className={cx('px-5 py-3 text-[14px] font-semibold flex items-center gap-2', tone === 'human' ? 'text-human-ink' : 'text-machine-ink')}>{tone === 'human' ? <Icon.person /> : <Icon.machine />}{t}</h2>
+          {(keys as readonly UseKey[]).map((k) => (
             <UseRow key={k} k={k} terms={licence.uses[k]} suggested={k === 'read' ? v.prices.read : k === 'ai_quote' ? v.prices.quote : k === 'ai_train' ? v.prices.train : v.prices.republish} onChange={(p) => setUse(k, p)} licencePreview={licence.previewWords} setPreview={(n) => setLicence({ ...licence, presetId: 'custom', previewWords: n })} />
           ))}
-          {licence.exclusiveHours > 0 && (
-            <div className="px-5 py-3 text-[13.5px] text-ink-2 bg-human-wash/50 rounded-b-[14px]">
-              Exclusive window: {inr(licence.uses.read.price)} for the first {licence.exclusiveHours} hours, then {inr(licence.afterWindowReadPrice || 0)}.
+        </section>
+        ))}
+        <section aria-label="Promote" className="panel p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <h2 className="text-[15px] font-semibold">Promote this piece</h2>
+              <p className="text-[13px] text-muted mt-0.5">Show it higher on readers’ home pages, labelled “Promoted”. Only to readers who follow its topics.</p>
+            </div>
+            <button role="switch" aria-checked={promo.on} aria-label="Promote this piece" onClick={() => setPromo({ ...promo, on: !promo.on })} className={cx('w-11 h-6 rounded-full relative transition-colors cursor-pointer shrink-0', promo.on ? 'bg-good' : 'bg-line')}><span className={cx('absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all', promo.on ? 'left-[22px]' : 'left-0.5')} /></button>
+          </div>
+          {promo.on && (
+            <div className="pop-in mt-4 grid sm:grid-cols-2 gap-4">
+              <fieldset><legend className="text-[13px] font-semibold">Budget per day</legend>
+                <div className="flex gap-1.5 mt-1.5">{[50, 100, 250].map((x) => <button key={x} aria-pressed={promo.perDay === x} onClick={() => setPromo({ ...promo, perDay: x })} className={cx('h-8 px-3 rounded-full border text-[13px] cursor-pointer', promo.perDay === x ? 'bg-ink text-white border-ink' : 'border-line')}>{inr(x)}</button>)}</div></fieldset>
+              <fieldset><legend className="text-[13px] font-semibold">For</legend>
+                <div className="flex gap-1.5 mt-1.5">{[3, 7, 14].map((x) => <button key={x} aria-pressed={promo.days === x} onClick={() => setPromo({ ...promo, days: x })} className={cx('h-8 px-3 rounded-full border text-[13px] cursor-pointer', promo.days === x ? 'bg-ink text-white border-ink' : 'border-line')}>{x} days</button>)}</div></fieldset>
+              <p className="sm:col-span-2 text-[14px] rounded-[10px] bg-paper p-3">Total {inr(promo.perDay * promo.days)}, taken from your earnings. Estimated {Math.round(promo.perDay * promo.days / 2.4).toLocaleString('en-IN')}–{Math.round(promo.perDay * promo.days / 1.4).toLocaleString('en-IN')} extra readers. At your price, that’s about {inr(Math.round(promo.perDay * promo.days / 1.9 * 0.12 * v.prices.read))} back from reads alone.</p>
             </div>
           )}
         </section>
+          {licence.exclusiveHours > 0 && (
+            <div className="px-5 py-3 text-[13.5px] text-ink-2 bg-human-wash/50 rounded-[14px]">
+              Exclusive window: {inr(licence.uses.read.price)} for the first {licence.exclusiveHours} hours, then {inr(licence.afterWindowReadPrice || 0)}.
+            </div>
+          )}
+        </div>
 
         <aside className="flex flex-col gap-4 xl:sticky xl:top-[88px]">
           <div className="panel p-5">

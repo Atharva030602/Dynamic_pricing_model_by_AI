@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from './store'
-import { Avatar, Logo, cx, go, useRoute } from './ui/kit'
+import { Avatar, Logo, Stars, cx, go, useRoute } from './ui/kit'
 import Home from './screens/Home'
 import Write from './screens/Write'
 import LicenceBuilder from './screens/Licence'
@@ -10,13 +10,18 @@ import Demo from './screens/Demo'
 import Onboarding from './screens/Onboarding'
 import Community from './screens/Community'
 import Hub, { StudioTour } from './screens/Hub'
+import CreatorJoin from './screens/CreatorJoin'
+import CreatorGate from './screens/CreatorGate'
+import Report from './screens/Report'
 
 export default function App() {
   const { path, params } = useRoute()
-  const { profile, skippedOnboarding } = useStore()
+  const { profile, skippedOnboarding, creatorSession } = useStore()
   if (path === '/welcome') return <Onboarding />
+  if (path === '/creator/join') return <CreatorJoin />
   if (path.startsWith('/studio')) {
-    const tab = path.split('/')[2] || (profile?.role === 'creator' ? 'hub' : 'write')
+    const tab = path.split('/')[2] || 'hub'
+    if (!creatorSession) return <CreatorGate next={`/studio/${tab}`} />
     return (
       <StudioShell tab={tab}>
         {tab === 'hub' ? <Hub /> : tab === 'licence' ? <LicenceBuilder /> : tab === 'earnings' ? <Earnings /> : tab === 'demo' ? <Demo /> : <Write />}
@@ -25,6 +30,7 @@ export default function App() {
   }
   if (path.startsWith('/work/')) return <ReaderShell><WorkPage id={path.split('/')[2]} /></ReaderShell>
   if (path === '/community') return <ReaderShell active="community"><Community /></ReaderShell>
+  if (path === '/report') return <ReaderShell><Report /></ReaderShell>
   // first visit: start with onboarding, unless the visitor chose to just browse
   if (!profile && !skippedOnboarding && [...params.keys()].length === 0) return <Onboarding />
   return <ReaderShell active="home"><Home /></ReaderShell>
@@ -39,9 +45,10 @@ const TABS = [
 ]
 
 function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
-  const { me, profile, tourDone, finishTour } = useStore()
+  const { me, tourDone, finishTour, creatorSession, startCreatorSession, ratingOf } = useStore()
   const { params } = useRoute()
-  const showTour = params.get('tour') === '1' || (profile?.role === 'creator' && !tourDone)
+  const showTour = params.get('tour') === '1' || (creatorSession === 'me' && !tourDone)
+  const rating = ratingOf(me.id)
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur border-b border-line">
@@ -67,8 +74,12 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
             <a href="#/" className="text-[14px] text-ink-2 hover:text-ink font-medium">Reader home</a>
             <span className="hidden sm:flex items-center gap-2 pl-3 border-l border-line">
               <Avatar name={me.name} hue={me.avatarHue} size={30} />
-              <span className="text-[14px] font-medium">{me.name}</span>
+              <span className="leading-tight">
+                <span className="block text-[14px] font-medium">{me.name}{creatorSession === 'demo' && <span className="ml-1.5 text-[11px] rounded-full bg-human-wash text-human-ink px-1.5 py-0.5 font-semibold">Demo</span>}</span>
+                <Stars value={rating.stars} size={11} className="text-[11.5px]" />
+              </span>
             </span>
+            <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer">Sign out</button>
           </div>
         </div>
       </header>
@@ -108,8 +119,8 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <a href="#/studio/demo" className="hidden lg:grid h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium place-items-center">Live demo</a>
-            <a href={profile?.role === 'creator' ? '#/studio/write' : '#/community?new=1'} title={profile?.role === 'creator' ? 'Write and publish a piece' : 'Share a news link or ask a question'} className="h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium grid place-items-center">+ Add news</a>
-            <a href="#/studio" className="hidden sm:grid h-9 px-3.5 rounded-[9px] bg-ink text-white text-[14px] font-medium place-items-center">{profile?.role === 'creator' ? 'My studio' : 'Creator studio'}</a>
+            <a href="#/community?new=1" title="Share a news link or ask a question" className="h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium grid place-items-center">+ Add news</a>
+            <a href="#/studio" className="hidden sm:grid h-9 px-3.5 rounded-[9px] bg-ink text-white text-[14px] font-medium place-items-center">Creator studio</a>
             {profile ? (
               <div className="relative" ref={ref}>
                 <button onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label="Account" className="flex items-center gap-2 h-9 pl-1 pr-2 rounded-full hover:bg-line-2 cursor-pointer">
@@ -118,9 +129,10 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
                 </button>
                 {menu && (
                   <div className="absolute right-0 mt-2 w-60 rounded-[12px] border border-line bg-surface shadow-[0_8px_30px_rgba(25,28,54,.15)] p-1.5 text-[14px] pop-in">
-                    <p className="px-3 py-2 text-muted text-[12.5px]">{profile.handle}, {profile.role === 'creator' ? 'creator' : 'reader'}</p>
+                    <p className="px-3 py-2 text-muted text-[12.5px]">{profile.handle}, reader{profile.premium ? ', Premium' : ''}</p>
                     <a href="#/welcome" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">Edit my topics</a>
                     <a href="#/?c=saved" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">Saved stories</a>
+                    <a href="#/report" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">My reading report{profile.premium ? '' : ' (Premium)'}</a>
                     <a href="#/community" className="block px-3 py-2 rounded-[8px] hover:bg-line-2 md:hidden">Community</a>
                     <button onClick={() => { setProfile(null); go('/welcome') }} className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-line-2 cursor-pointer">Sign out</button>
                   </div>

@@ -6,24 +6,24 @@ import { rankForUser } from '../engine/similarity'
 import { useStore } from '../store'
 import { Engage } from '../ui/Engage'
 import { MarketPanel, MarketStrip } from '../ui/Market'
-import { Avatar, Icon, Photo, ago, compact, cx, fmtDate, go, useRoute } from '../ui/kit'
+import { Avatar, Icon, Photo, Stars, ago, compact, cx, fmtDate, go, useRoute } from '../ui/kit'
 
 type Tab = 'foryou' | 'top' | 'saved' | Category
 
 export default function Home() {
-  const { feed, profile, learned, promoted, bookmarked, posts, creators } = useStore()
+  const { feed, profile, learned, promoted, bookmarked, posts, creators, promotions } = useStore()
   const { params } = useRoute()
   const tab = (params.get('c') as Tab) || (profile ? 'foryou' : 'top')
   const q = params.get('q') || ''
   const welcome = params.get('welcome') === '1'
 
   const ranked = useMemo(() => {
-    const items = feed.map((w) => ({ ...w, keywords: w.meta.keywords, likes: w.meta.likes + (promoted.includes(w.id) ? 400 : 0) }))
+    const items = feed.map((w) => ({ ...w, keywords: w.meta.keywords, likes: w.meta.likes + (promoted.includes(w.id) ? 400 : 0) + (promotions[w.id] ? 5000 : 0) }))
     if (tab === 'saved') return feed.filter((w) => bookmarked.includes(w.id)).map((w) => ({ w, why: 'Saved by you' }))
     if (tab === 'foryou') return rankForUser(items, profile?.keywords || [], learned).map((r) => ({ w: r.item as Decorated, why: r.why }))
     const list = tab === 'top' ? feed : feed.filter((w) => w.category === tab)
     return list.map((w) => ({ w, why: '' }))
-  }, [feed, tab, profile?.keywords, learned, promoted, bookmarked])
+  }, [feed, tab, profile?.keywords, learned, promoted, bookmarked, promotions])
 
   const newest = feed.find((w) => w.live && Date.now() - new Date(w.publishedAt).getTime() < 36e5 * 6)
   const hero = ranked.slice(0, 5)
@@ -303,18 +303,21 @@ function FeedRow({ i, children }: { i: number; children: React.ReactNode }) {
   )
 }
 
-function FeedCard({ w, why, c }: { w: Decorated; why: string; c: { name: string; avatarHue: number } }) {
+function FeedCard({ w, why, c }: { w: Decorated; why: string; c: { id: string; name: string; avatarHue: number } }) {
+  const { ratingOf, promotions } = useStore()
   const read = w.licence.uses.read
   return (
     <li className={cx('border-b border-line', w.live && 'arrive')}>
       <a href={`#/work/${w.id}`} className="group grid sm:grid-cols-[minmax(0,1fr)_220px] gap-4 sm:gap-6 py-5">
         <div className="min-w-0 order-2 sm:order-1">
-          <p className="text-[13px] font-medium text-human-ink">{w.category}{w.kind === 'dataset' ? ', dataset' : w.kind === 'video' ? ', video' : ''}</p>
+          <p className="text-[13px] font-medium text-human-ink">{w.customCategory || w.category}{w.kind === 'dataset' ? ', dataset' : w.kind === 'video' ? ', video' : ''}</p>
           <h3 className="font-serif text-[22px] md:text-[24px] leading-[1.15] font-medium mt-1 group-hover:underline">{w.title}</h3>
           <p className="font-serif text-[16px] leading-snug text-ink-2 mt-1.5 line-clamp-2">{w.dek}</p>
           {why && <p className="text-[12.5px] text-machine-ink mt-2 flex items-center gap-1.5"><Icon.spark className="shrink-0" />{why}</p>}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-[13px]">
             <span className="flex items-center gap-1.5 font-medium"><Avatar name={c.name} hue={c.avatarHue} size={20} />{c.name}</span>
+            <Stars value={ratingOf(c.id).stars} size={11} className="text-[12px] text-ink-2" />
+            {promotions[w.id] && <span className="rounded-full px-2 h-5 inline-flex items-center text-[11.5px] font-semibold bg-line-2 text-ink-2">Promoted</span>}
             <span className="text-muted">{w.live ? ago(w.publishedAt) : fmtDate(w.publishedAt)}</span>
             <span className={cx('rounded-full px-2 h-5 inline-flex items-center font-medium text-[12px]', read.permission === 'free' ? 'bg-good-wash text-good' : 'bg-human-wash text-human-ink')}>{read.permission === 'free' ? 'Free' : `${inr(read.price)} or Pass`}</span>
           </div>

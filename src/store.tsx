@@ -14,6 +14,7 @@ import { decorate, type Decorated } from './data/meta'
 import { COMMUNITY, type Category, type CommunityPost } from './data/v2'
 import { guessCategory } from './data/meta'
 import { Index } from './engine/similarity'
+import { rateCreator, type Rating } from './engine/rating'
 
 export interface Profile {
   role: 'reader' | 'creator'
@@ -25,6 +26,28 @@ export interface Profile {
   makes?: string
   audience?: string
   aiTraining?: 'ask' | 'no' | 'paid'
+  createdAt: string
+  /** interest weights learned during onboarding (keyword → 0..1) */
+  weights?: Record<string, number>
+  rhythm?: { when: string; length: string }
+  socials?: string[]
+  premium?: boolean
+  reportFreq?: 'weekly' | 'monthly'
+  depth?: string
+}
+
+export interface CreatorAccount {
+  name: string
+  handle: string
+  email: string
+  city: string
+  beat: string
+  languages: string[]
+  formats: string[]
+  socials: { network: string; handle: string; posts: number; followers: number }[]
+  goal: 'reach' | 'income' | 'both'
+  audience: string[]
+  aiTraining: 'ask' | 'no' | 'paid'
   createdAt: string
 }
 export interface Comment { name: string; text: string; ts: string }
@@ -39,6 +62,9 @@ export interface Draft {
   aiUses: string[]
   sampleId?: string
   category?: Category
+  formats?: string[]
+  customCategory?: string
+  importedFrom?: string
 }
 
 type Keys = { publicJwk: JsonWebKey; privateJwk: JsonWebKey }
@@ -64,9 +90,14 @@ interface Persisted {
   posts: CommunityPost[]
   votes: Record<string, number>
   replies: Record<string, { author: string; text: string; ts: string }[]>
+  creator: CreatorAccount | null
+  creatorSession: 'me' | 'demo' | null
+  promotions: Record<string, { perDay: number; days: number; started: string }>
+  customCategories: string[]
+  history: { id: string; ts: string; secs: number }[]
 }
 
-const LS_KEY = 'twofold:v4'
+const LS_KEY = 'twofold:v5'
 export const guestId = (handle: string) => `g_${handle.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'guest'}`
 const ME = 'riya'
 
@@ -75,12 +106,17 @@ function defaultDraft(): Draft {
   return { title: s.title, dek: s.dek, body: s.body, kind: s.kind, attachments: { sourceDocs: false, rawData: false }, disclosure: 'ai_assisted', aiUses: ['proofreading'], sampleId: 'draft' }
 }
 
+export function blankDraft(): Draft {
+  return { title: '', dek: '', body: '', kind: 'article', attachments: { sourceDocs: false, rawData: false }, disclosure: 'human', aiUses: [], formats: ['article'] }
+}
+
 function load(): Persisted {
   const empty: Persisted = {
     published: [], liveEvents: [], seals: {}, keys: {}, draft: defaultDraft(), licence: null,
     reports: REPORTS, requests: PENDING_REQUESTS, derivatives: DERIVATIVES,
     profile: null, skippedOnboarding: false, tourDone: false, liked: [], bookmarked: [], promoted: [], learned: {},
     comments: {}, posts: [], votes: {}, replies: {},
+    creator: null, creatorSession: null, promotions: {}, customCategories: [], history: [],
   }
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -137,6 +173,21 @@ interface Store {
   vote: (id: string, d: number) => void
   replies: Record<string, { author: string; text: string; ts: string }[]>
   reply: (id: string, text: string) => void
+  // v3
+  creator: CreatorAccount | null
+  creatorSession: 'me' | 'demo' | null
+  setCreator: (c: CreatorAccount | null) => void
+  startCreatorSession: (s: 'me' | 'demo' | null) => void
+  newDraft: () => void
+  promotions: Persisted['promotions']
+  promote: (workId: string, perDay: number, days: number) => void
+  stopPromotion: (workId: string) => void
+  customCategories: string[]
+  addCustomCategory: (c: string) => void
+  ratingOf: (creatorId: string) => Rating
+  updateProfile: (p: Partial<Profile>) => void
+  history: Persisted['history']
+  recordRead: (id: string, secs: number) => void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -156,8 +207,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [remotePosts, setRemotePosts] = useState<CommunityPost[]>([])
   const chan = useRef<BroadcastChannel | null>(null)
   const profile = p.profile
-  const meProfile: CreatorProfile | null = profile?.role === 'creator'
-    ? { id: guestId(profile.handle), name: profile.name, handle: profile.handle, beat: profile.makes || 'Independent creator', location: profile.city || 'India', reputation: 0.5, pastPieces: 0, followers: 250, joined: '2026', verified: false, avatarHue: 330 }
+  const ca = p.creator
+  const meProfile: CreatorProfile | null = ca && p.creatorSession === 'me'
+    ? { id: guestId(ca.handle), name: ca.name, handle: ca.handle, beat: ca.beat || 'Independent creator', location: ca.city || 'India', reputation: ca.socials.length ? 0.58 : 0.5, pastPieces: ca.socials.reduce((a, x) => a + x.posts, 0), followers: 250 + ca.socials.reduce((a, x) => a + x.followers, 0), joined: '2026', verified: false, avatarHue: 330 }
     : null
   const [remoteAuthorsKey, setRemoteAuthorsKey] = useState('')
   const creators = useMemo(() => {
@@ -247,7 +299,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [p.draft.title, p.draft.body, p.draft.kind, p.draft.attachments, me],
   )
 
-  const licence = useMemo(() => p.licence || buildLicence(profile?.aiTraining === 'no' ? 'no_training' : 'paid_both', valuation), [p.licence, valuation, profile?.aiTraining])
+  const licence = useMemo(() => p.licence || buildLicence(meProfile && ca?.aiTraining === 'no' ? 'no_training' : 'paid_both', valuation), [p.licence, valuation, ca?.aiTraining, meProfile?.id])
 
   const setDraft = (d: Partial<Draft>) => commit((x) => ({ ...x, draft: { ...x.draft, ...d } }))
   const loadSample = (id: string) => {
@@ -268,14 +320,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const d = override || p.draft
     const ME = asCreator || me.id
     const val = override ? valuate({ title: d.title, body: d.body, kind: d.kind, attachments: d.attachments }, me) : valuation
-    const lic = override ? buildLicence(profile?.aiTraining === 'no' ? 'no_training' : 'paid_both', val) : licence
+    const lic = override ? buildLicence(meProfile && ca?.aiTraining === 'no' ? 'no_training' : 'paid_both', val) : licence
     const id = `tf_${d.title.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 3) || 'new'}_${Date.now().toString(36).slice(-5)}`
     const keys = p.keys[ME] || (SEED_KEYS as Record<string, Keys>)[ME] || (await generateKeys())
     const publishedAt = new Date().toISOString()
     const contentHash = await fingerprint(d.body)
     const seal = await sign({ workId: id, contentHash, creatorId: ME, signedAt: publishedAt, origin: d.disclosure, aiAssistance: d.aiUses, version: 1 }, keys)
     const work: Work = {
-      id, creatorId: ME, kind: d.kind, section: d.category || guessCategory(`${d.title} ${d.dek} ${d.body}`),
+      id, creatorId: ME, kind: d.kind, section: d.category || guessCategory(`${d.title} ${d.dek} ${d.body}`), customCategory: d.customCategory, formats: d.formats,
       author: meProfile && ME === meProfile.id ? { name: meProfile.name, handle: meProfile.handle, beat: meProfile.beat, location: meProfile.location, avatarHue: meProfile.avatarHue } : undefined,
       title: d.title, dek: d.dek, body: d.body,
       topics: val.features.topics.slice(0, 3).map((t) => t.topic.label), publishedAt,
@@ -304,7 +356,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const feed = useMemo(() => works.map(decorate), [works])
   const index = useMemo(() => new Index(feed.map((w) => ({ id: w.id, title: w.title, dek: w.dek, body: w.body, keywords: w.meta.keywords, category: w.category, publishedAt: w.publishedAt }))), [feed])
-  const setProfile = (pr: Profile | null) => commit((x) => ({ ...x, profile: pr, tourDone: pr?.role === 'creator' ? false : x.tourDone, licence: null }))
+  const setProfile = (pr: Profile | null) => commit((x) => ({ ...x, profile: pr }))
+  const updateProfile = (pr: Partial<Profile>) => commit((x) => (x.profile ? { ...x, profile: { ...x.profile, ...pr } } : x))
+  const setCreator = (c: CreatorAccount | null) => commit((x) => ({ ...x, creator: c, creatorSession: c ? 'me' : null, tourDone: c ? false : x.tourDone, licence: null, draft: c ? blankDraft() : x.draft }))
+  const startCreatorSession = (sess: 'me' | 'demo' | null) => commit((x) => ({ ...x, creatorSession: sess, licence: null, draft: sess === 'demo' && !x.draft.title ? defaultDraft() : x.draft }))
+  const newDraft = () => commit((x) => ({ ...x, draft: blankDraft(), licence: null }))
+  const promote = (workId: string, perDay: number, days: number) => commit((x) => ({ ...x, promotions: { ...x.promotions, [workId]: { perDay, days, started: new Date().toISOString() } } }))
+  const stopPromotion = (workId: string) => commit((x) => { const pr = { ...x.promotions }; delete pr[workId]; return { ...x, promotions: pr } })
+  const addCustomCategory = (c: string) => commit((x) => ({ ...x, customCategories: [...new Set([...x.customCategories, c])] }))
+  const ratings = useMemo(() => {
+    const m: Record<string, Rating> = {}
+    const likes: Record<string, number> = {}
+    for (const id of p.liked) likes[id] = 1
+    for (const id of Object.keys(creators)) m[id] = rateCreator(creators[id], feed, events, p.reports, { likes })
+    return m
+  }, [creators, feed, events, p.reports, p.liked])
+  const recordRead = (id: string, secs: number) => commit((x) => ({ ...x, history: [...x.history, { id, ts: new Date().toISOString(), secs: Math.min(1800, Math.round(secs)) }].slice(-300) }), false)
+  const ratingOf = (id: string) => ratings[id] || rateCreator(creators[id], feed, events, p.reports)
   const skipOnboarding = () => commit((x) => ({ ...x, skippedOnboarding: true }))
   const finishTour = () => commit((x) => ({ ...x, tourDone: true }))
   const toggle = (kind: 'liked' | 'bookmarked' | 'promoted', id: string) => commit((x) => {
@@ -316,7 +384,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     return { ...x, learned, [kind]: on ? x[kind].filter((i) => i !== id) : [...x[kind], id] }
   })
-  const authorName = profile?.name || 'You'
+  const authorName = profile?.name || ca?.name || 'You'
   const addComment = (id: string, text: string) => commit((x) => ({ ...x, comments: { ...x.comments, [id]: [...(x.comments[id] || []), { name: authorName, text, ts: new Date().toISOString() }] } }))
   const addPost: Store['addPost'] = (post) => {
     const full: CommunityPost = { ...post, id: `up_${Date.now().toString(36)}`, author: authorName, hue: 330, votes: 1, ts: new Date().toISOString(), replies: [] }
@@ -333,6 +401,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     respondRequest, claimDerivative, fileReport, resetDemo, serverOnline,
     feed, index, profile, setProfile, skipOnboarding, skippedOnboarding: p.skippedOnboarding, tourDone: p.tourDone, finishTour,
     liked: p.liked, bookmarked: p.bookmarked, promoted: p.promoted, learned: p.learned, toggle,
+    creator: ca, creatorSession: p.creatorSession, setCreator, startCreatorSession, newDraft, promotions: p.promotions, promote, stopPromotion,
+    customCategories: p.customCategories, addCustomCategory, ratingOf, updateProfile, history: p.history, recordRead,
     comments: p.comments, addComment, posts: [...remotePosts.filter((r) => !p.posts.some((x) => x.id === r.id)), ...p.posts, ...COMMUNITY].sort((a, b) => b.ts.localeCompare(a.ts)), addPost, votes: p.votes, vote, replies: p.replies, reply,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

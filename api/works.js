@@ -17,7 +17,9 @@ export default async function handler(req, res) {
   } : null
   const gid = author ? `g_${(author.handle || author.name).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'guest'}` : 'riya'
   const clean = {
-    id: w.id.slice(0, 64), creatorId: gid, author: author || undefined, kind: ['article', 'video', 'dataset'].includes(w.kind) ? w.kind : 'article',
+    id: w.id.slice(0, 64), creatorId: gid, author: author || undefined,
+    customCategory: typeof w.customCategory === 'string' && /^[\p{L}\p{N} &'-]{2,30}$/u.test(w.customCategory.trim()) ? w.customCategory.trim() : undefined,
+    formats: Array.isArray(w.formats) ? w.formats.filter((f) => ['post', 'article', 'video', 'data'].includes(f)).slice(0, 4) : undefined, kind: ['article', 'video', 'dataset'].includes(w.kind) ? w.kind : 'article',
     section: ['Markets', 'Sports', 'Tech', 'Climate', 'Cities', 'Culture', 'Data', 'Reviews', 'Explainers'].includes(w.section) ? w.section : 'Markets', title: w.title, dek: String(w.dek || '').slice(0, 600), body: w.body,
     topics: Array.isArray(w.topics) ? w.topics.slice(0, 5).map(String) : [], publishedAt: new Date().toISOString(),
     disclosure: ['human', 'ai_assisted', 'ai_generated'].includes(w.disclosure) ? w.disclosure : 'human',
