@@ -69,16 +69,16 @@ ${body}
 </piece>`
 
   // Try the configured model, then lighter fallbacks; retry briefly on overload (429/503).
-  const models = [...new Set([model, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'])]
+  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite'])]
   const started = Date.now()
   let r = null
   let used = model
   try {
     outer: for (const m of models) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        if (Date.now() - started > 22000) break outer
+      for (let attempt = 0; attempt < 1; attempt++) {
+        if (Date.now() - started > 24000) break outer
         const ctrl = new AbortController()
-        const timer = setTimeout(() => ctrl.abort(), 12000)
+        const timer = setTimeout(() => ctrl.abort(), 9000)
         try {
           r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
             method: 'POST',
@@ -100,7 +100,6 @@ ${body}
         if (r && r.ok) break outer
         if (r) console.error('gemini', m, r.status, (await r.text()).slice(0, 200))
         if (r && r.status === 404) break // model name not available: try the next one
-        await new Promise((ok) => setTimeout(ok, 800))
       }
     }
     if (!r || !r.ok) return res.status(200).json(rulesReview(v, r && r.status === 429 ? 'AI reviewer is busy right now' : 'AI reviewer is overloaded right now, try again in a minute'))
