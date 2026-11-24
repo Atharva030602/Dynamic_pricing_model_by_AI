@@ -3,7 +3,7 @@
 > **Twofold** (working name): a studio for creators whose audience is half people, half machines.
 > One piece of work, two audiences, fair pay from both.
 
-Version 1.0 · 24 Nov 2026 · Prototype for the Zzazz "AI Creator Studio" assignment
+Version 1.1, 24 Nov 2026. Prototype for the Zzazz "AI Creator Studio" assignment
 
 ---
 
@@ -154,25 +154,26 @@ Value index V = Q^0.6 · M^0.4          (geometric: a hot topic cannot rescue th
 ### 5.2 From index to money (₹, 30 days)
 
 ```
-p_read   = 3 + 22·(V/100)^1.3 · kindFactor            (V < 25 → suggest free, to grow audience)
-p_quote  = p_read × 0.12 × freshness                   (one AI answer meets ~10–15 % of a reader's need)
-p_train  = max(₹500, 3 × E[12-month quote revenue] × (1 − 0.5·perishability))   one-time, per model
-p_repub  = p_read × 60                                  (a republisher reaches its own audience)
+p_read   = (3 + 16·(V/100)^1.3 · kindFactor) × verified          (V < 25 → suggest free, to grow audience)
+p_quote  = p_read × quoteRatio × freshness                         (article 0.12: one AI answer meets ~10–15 % of a reader's need)
+p_train  = max(₹500, k × E[12-month quote revenue] × (1 − 0.7·perishability) × verified)   one-time, per model; k = 2, datasets 5
+p_repub  = max(₹150, p_read × 60)                                 (a republisher reaches its own audience)
 
-reads    = followers × (0.5 + 2.5·M/100) × (0.04 + 0.16·Q/100)
-quotes   = monthlyAgentQueries(topic) × citationShare(Q, O)
-training = P(sale) × p_train,   P = 0.05 + 0.4·(O/100) × (dataset ? 1.8 : 1)
+reads    = followers × (0.5 + 2.5·M/100) × (0.04 + 0.16·Q/100) × convFactor
+quotes   = monthlyAgentQueries(top 2 topics) × citationShare(Q, O)
+training = P(sale) × p_train,   P = 0.02 + 0.15·O/100 (articles, video), 0.08 + 0.3·O/100 (datasets)
 derivs   = 0.1 × humanEarnings × O/100
 
 E = reads·p_read + quotes·p_quote + training + derivs
 Range = E × (1 ± u),   u = 0.6 − 0.45·confidence
+verified = 1.1 when a source document or raw data is attached
 ```
 
 ### 5.3 Confidence
 
 ```
 conf = 0.35·min(1, words/400) + 0.25·min(1, pastPieces/20)
-     + 0.25·(topic found in demand index ? 1 : 0.4) + 0.15·reputation − 0.25·(gaming flag)
+     + 0.25·(topic found in demand index ? 1 : 0.4) + 0.15·reputation − 0.1·(serious quality flag)
 Low < 0.45 ≤ Medium < 0.70 ≤ High
 ```
 A new creator, a short draft or an unfamiliar topic all widen the range and say why.
@@ -227,7 +228,7 @@ Pick a preset → adjust any row → read the plain-English paragraph → publis
     "read":      { "permission": "paid", "price": { "amount": 15, "currency": "INR", "unit": "per_reader" } },
     "ai_quote":  { "permission": "paid", "price": { "amount": 1.8, "currency": "INR", "unit": "per_answer" },
                    "conditions": { "attribution": "required", "link_back": "required", "max_quote_words": 40 } },
-    "ai_train":  { "permission": "ask", "indicative_price": { "amount": 6500, "currency": "INR", "unit": "per_model" } },
+    "ai_train":  { "permission": "ask", "indicative_price": { "amount": 10880, "currency": "INR", "unit": "per_model" } },
     "republish": { "permission": "paid", "price": { "amount": 900, "currency": "INR", "unit": "per_republication" },
                    "conditions": { "attribution": "required", "derivatives": ["translation", "summary", "clip"], "royalty_share": 0.3 } }
   },
