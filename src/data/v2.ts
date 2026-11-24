@@ -36,7 +36,7 @@ export const PHOTOS = {
   hero2: { url: u('photo-1582046989896-db5fc3a2d858'), alt: 'Phone on a notebook', credit: 'Nathan Dumlao / Unsplash' },
   creator: { url: u('photo-1581091212991-8891c7d4bd9b'), alt: 'Engineers at work in a factory', credit: 'ThisisEngineering / Unsplash' },
   market: { url: u('photo-1560221328-12fe60f83ab8'), alt: 'Monitor showing a price chart', credit: 'Nicholas Cappello / Unsplash' },
-  community: { url: u('photo-1753351055553-dc74d82ea7b5'), alt: 'Two friends looking at a phone together', credit: 'Vitaly Gariev / Unsplash' },
+  community: { url: u('photo-1488509082528-cefbba5ad692'), alt: 'Person using a smartphone', credit: 'Priscilla Du Preez / Unsplash' },
   tractor: { url: u('photo-1706092949220-d526e998b9a6'), alt: 'A red tractor on a dry field', credit: 'Ujwal Sharma / Unsplash' },
   assembly: { url: u('photo-1581091212991-8891c7d4bd9b'), alt: 'Engineers on a car assembly line', credit: 'ThisisEngineering / Unsplash' },
   category: {
