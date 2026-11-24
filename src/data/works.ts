@@ -23,6 +23,7 @@ export interface Work {
   estimate?: { low: number; high: number; confidence: string }
   seal?: Seal
   live?: boolean
+  author?: { name: string; handle: string; beat: string; location: string; avatarHue: number }
 }
 
 

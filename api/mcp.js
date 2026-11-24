@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   const ids = new Set(published.map((w) => w.id))
   const ctx = {
     works: [...published, ...SEED.filter((w) => !ids.has(w.id))],
-    creatorName: (id) => CREATORS[id]?.name || id,
+    creatorName: (id) => CREATORS[id]?.name || published.find((w) => w.creatorId === id)?.author?.name || id,
     host,
     now: () => new Date().toISOString(),
     pending: [],

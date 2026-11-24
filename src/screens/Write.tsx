@@ -3,6 +3,8 @@ import { SAMPLES } from '../data/samples'
 import { applyNudges, type SignalKey, type Valuation } from '../engine/valuation'
 import { inr } from '../engine/licence'
 import { useStore, type Disclosure } from '../store'
+import { CATEGORY_LIST, type Category } from '../data/v2'
+import { guessCategory } from '../data/meta'
 import { Badge, Button, Icon, Meter, Segmented, cx, go } from '../ui/kit'
 
 const AI_USES = ['research', 'drafting', 'translation', 'proofreading', 'images']
@@ -58,6 +60,13 @@ export default function Write() {
             onChange={(k) => setDraft({ kind: k })}
             options={[{ value: 'article', label: 'Article' }, { value: 'video', label: 'Video' }, { value: 'dataset', label: 'Dataset' }]}
           />
+          <label className="flex items-center gap-2 text-[13px] text-muted">
+            Category
+            <select value={draft.category || ''} onChange={(e) => setDraft({ category: (e.target.value || undefined) as Category | undefined })} className="h-8 rounded-[8px] border border-line bg-surface px-2 text-[13.5px] text-ink">
+              <option value="">Auto: {guessCategory(`${draft.title} ${draft.dek} ${draft.body}`)}</option>
+              {CATEGORY_LIST.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
+            </select>
+          </label>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[13px] text-muted mr-1">Try</span>
             {SAMPLES.filter((s) => s.id !== 'scoop').map((s) => (

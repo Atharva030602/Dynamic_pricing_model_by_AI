@@ -31,3 +31,13 @@ export async function addEvent(e) {
   if (storeKind === 'redis') { await redis(['LPUSH', 'tf:events', JSON.stringify(e)]); await redis(['LTRIM', 'tf:events', 0, 299]); return }
   mem.events = [e, ...mem.events].slice(0, 300)
 }
+
+export async function listPosts() {
+  if (storeKind === 'redis') return ((await redis(['LRANGE', 'tf:posts', 0, 49])) || []).map((s) => JSON.parse(s))
+  return (mem.posts || []).slice(0, 50)
+}
+
+export async function addPost(p) {
+  if (storeKind === 'redis') { await redis(['LPUSH', 'tf:posts', JSON.stringify(p)]); await redis(['LTRIM', 'tf:posts', 0, 49]); return }
+  mem.posts = [p, ...(mem.posts || []).filter((x) => x.id !== p.id)].slice(0, 50)
+}

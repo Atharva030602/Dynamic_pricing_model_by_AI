@@ -78,7 +78,7 @@ export default function Demo() {
     setTurns([]); setLog([]); setWork(null)
     startedAt.current = new Date().toISOString()
     setPhase('publishing')
-    note('Riya publishes a new exclusive. The text is fingerprinted and signed.')
+    note(`${me.name.split(' ')[0]} publishes a new exclusive. The text is fingerprinted and signed.`)
     const w = await publish(STORY)
     setWork(w)
     setPhase('published')
@@ -130,7 +130,7 @@ export default function Demo() {
       await wait(700)
     }
     setPhase('done')
-    note('Every use is on Riya’s earnings dashboard, split into people and AI.')
+    note(`Every use is on ${me.name.split(' ')[0]}’s earnings dashboard, split into people and AI.`)
   }
 
   const storyEvents = work ? events.filter((e) => e.workId === work.id) : []

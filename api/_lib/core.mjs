@@ -12,11 +12,11 @@ var inr = (n, opts = {}) => {
   const d = opts.decimals || n < 10 && n % 1 !== 0;
   return "\u20B9" + n.toLocaleString("en-IN", { minimumFractionDigits: d ? n % 1 ? 2 : 0 : 0, maximumFractionDigits: d ? 2 : 0 });
 };
-function priceText(u, unit) {
-  if (u.permission === "free") return "free";
-  if (u.permission === "no") return "not allowed";
-  if (u.permission === "ask") return `only with your written OK (you suggest about ${inr(u.price)} ${unit})`;
-  return `${inr(u.price)} ${unit}`;
+function priceText(u2, unit) {
+  if (u2.permission === "free") return "free";
+  if (u2.permission === "no") return "not allowed";
+  if (u2.permission === "ask") return `only with your written OK (you suggest about ${inr(u2.price)} ${unit})`;
+  return `${inr(u2.price)} ${unit}`;
 }
 function summarise(l, creatorFirstName) {
   const { read, ai_quote, ai_train, republish } = l.uses;
@@ -60,21 +60,21 @@ function joinAnd(xs) {
 }
 function toMachineJson(l, w, host = "https://twofold.app") {
   const use = (k) => {
-    const u = l.uses[k];
-    const o = { permission: u.permission };
-    if (u.permission === "paid") o.price = { amount: u.price, currency: "INR", unit: USE_META[k].unitLong };
-    if (u.permission === "ask") o.indicative_price = { amount: u.price, currency: "INR", unit: USE_META[k].unitLong };
+    const u2 = l.uses[k];
+    const o = { permission: u2.permission };
+    if (u2.permission === "paid") o.price = { amount: u2.price, currency: "INR", unit: USE_META[k].unitLong };
+    if (u2.permission === "ask") o.indicative_price = { amount: u2.price, currency: "INR", unit: USE_META[k].unitLong };
     const c = {};
-    if (u.permission !== "no") {
-      if (u.attribution) c.attribution = "required";
-      if (u.linkBack) c.link_back = "required";
-      if (u.maxQuoteWords) c.max_quote_words = u.maxQuoteWords;
-      if (u.derivatives) c.derivatives = Object.entries(u.derivatives).filter(([, v]) => v).map(([k2]) => k2);
-      if (u.royaltyShare) c.royalty_share = u.royaltyShare;
-      if (u.includedInPass) c.included_in = ["twofold_pass"];
+    if (u2.permission !== "no") {
+      if (u2.attribution) c.attribution = "required";
+      if (u2.linkBack) c.link_back = "required";
+      if (u2.maxQuoteWords) c.max_quote_words = u2.maxQuoteWords;
+      if (u2.derivatives) c.derivatives = Object.entries(u2.derivatives).filter(([, v]) => v).map(([k2]) => k2);
+      if (u2.royaltyShare) c.royalty_share = u2.royaltyShare;
+      if (u2.includedInPass) c.included_in = ["twofold_pass"];
     }
     if (Object.keys(c).length) o.conditions = c;
-    if (u.permission === "ask") o.request = { mcp_tool: "request_licence", contact: `${host}/@${w.creator.id}` };
+    if (u2.permission === "ask") o.request = { mcp_tool: "request_licence", contact: `${host}/@${w.creator.id}` };
     return o;
   };
   return {
@@ -100,6 +100,604 @@ function toMachineJson(l, w, host = "https://twofold.app") {
   };
 }
 
+// src/data/v2.ts
+var CATEGORY_LIST = [
+  { id: "Markets", blurb: "Companies, money, EVs", keywords: ["Stock market", "EVs", "Banking", "Commodities", "Lithium", "Auto industry", "IPOs", "Startups"] },
+  { id: "Sports", blurb: "Football, cricket and more", keywords: ["Football", "Indian football", "World Cup qualifiers", "Cricket", "Women\u2019s cricket", "Kabaddi", "Chess", "Athletics"] },
+  { id: "Tech", blurb: "AI, gadgets, data", keywords: ["AI", "Smartphones", "Data centres", "Gadget reviews", "Media & AI", "Cybersecurity", "Space"] },
+  { id: "Climate", blurb: "Monsoon, water, energy", keywords: ["Monsoon", "Groundwater", "Farming", "Solar energy", "Drought", "Food prices", "Air quality"] },
+  { id: "Cities", blurb: "Where you live", keywords: ["Pune", "Mumbai", "Bengaluru", "Delhi", "Metro & transport", "Housing", "Civic issues"] },
+  { id: "Culture", blurb: "Films, music, books", keywords: ["Films", "Marathi cinema", "Music", "Books", "Food", "Festivals"] }
+];
+var SECTION_TO_CATEGORY = {
+  Markets: "Markets",
+  Explainers: "Markets",
+  Data: "Climate",
+  Reviews: "Tech",
+  Cities: "Cities",
+  Sports: "Sports",
+  Tech: "Tech",
+  Climate: "Climate",
+  Culture: "Culture"
+};
+var u = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1400&q=70`;
+var PHOTOS = {
+  hero1: { url: u("photo-1554672408-17407e0322ce"), alt: "A man reading on his phone", credit: "charlesdeluvio / Unsplash" },
+  hero2: { url: u("photo-1582046989896-db5fc3a2d858"), alt: "Phone on a notebook", credit: "Nathan Dumlao / Unsplash" },
+  creator: { url: u("photo-1581091212991-8891c7d4bd9b"), alt: "Engineers at work in a factory", credit: "ThisisEngineering / Unsplash" },
+  market: { url: u("photo-1560221328-12fe60f83ab8"), alt: "Monitor showing a price chart", credit: "Nicholas Cappello / Unsplash" },
+  community: { url: u("photo-1753351055553-dc74d82ea7b5"), alt: "Two friends looking at a phone together", credit: "Vitaly Gariev / Unsplash" },
+  tractor: { url: u("photo-1706092949220-d526e998b9a6"), alt: "A red tractor on a dry field", credit: "Ujwal Sharma / Unsplash" },
+  assembly: { url: u("photo-1581091212991-8891c7d4bd9b"), alt: "Engineers on a car assembly line", credit: "ThisisEngineering / Unsplash" },
+  category: {
+    Markets: { url: u("photo-1645226880663-81561dcab0ae"), alt: "Phone held up in front of a stock chart", credit: "Adam \u015Amigielski / Unsplash" },
+    Sports: { url: u("photo-1522778119026-d647f0596c20"), alt: "A football pitch", credit: "Vienna Reyes / Unsplash" },
+    Tech: { url: u("photo-1584169417032-d34e8d805e8b"), alt: "Server room aisle", credit: "\u0130smail Enes Ayhan / Unsplash" },
+    Climate: { url: u("photo-1497435334941-8c899ee9e8e9"), alt: "Solar panels in a green field", credit: "Andreas G\xFCcklhorn / Unsplash" },
+    Cities: { url: u("photo-1718544680326-a96b27112d3b"), alt: "Train beside a city station", credit: "Xavier Praillet / Unsplash" },
+    Culture: { url: u("photo-1571366657764-16ca342d3284"), alt: "People on a street at night", credit: "Lerone Pieters / Unsplash" }
+  }
+};
+var NEW_CREATORS = {
+  aditya: { id: "aditya", name: "Aditya Rane", handle: "@aditya.football", beat: "Football writer", location: "Kolkata", reputation: 0.74, pastPieces: 58, followers: 4100, joined: "2025", verified: true, avatarHue: 150 },
+  ishita: { id: "ishita", name: "Ishita Bhave", handle: "@ishita.cricket", beat: "Cricket and grassroots sport", location: "Pune", reputation: 0.69, pastPieces: 17, followers: 1300, joined: "2026", verified: true, avatarHue: 330 },
+  rohan: { id: "rohan", name: "Rohan Iyer", handle: "@rohan.tech", beat: "Tech and media reporter", location: "Bengaluru", reputation: 0.77, pastPieces: 39, followers: 2900, joined: "2025", verified: true, avatarHue: 250 },
+  meghna: { id: "meghna", name: "Meghna Patil", handle: "@meghna.climate", beat: "Climate and farming reporter", location: "Aurangabad", reputation: 0.72, pastPieces: 26, followers: 1700, joined: "2025", verified: true, avatarHue: 95 },
+  tanvi: { id: "tanvi", name: "Tanvi Joshi", handle: "@tanvi.films", beat: "Film critic", location: "Pune", reputation: 0.66, pastPieces: 44, followers: 3600, joined: "2025", verified: true, avatarHue: 10 }
+};
+var NEW_WORKS = [
+  {
+    id: "tf_idn_0101",
+    creatorId: "aditya",
+    kind: "article",
+    section: "Sports",
+    title: "Indonesia\u2019s home defeat blows Group D of the qualifiers wide open",
+    dek: "A 2\u20131 loss in Jakarta leaves three teams within two points of second place with two rounds to play.",
+    body: `Indonesia lost 2\u20131 at home on Tuesday night, a result that leaves Group D of the World Cup qualifiers more open than at any point this campaign.
+
+Indonesia had won their previous three home games without conceding. The visitors scored twice in eleven minutes after half-time, and a late header was not enough to rescue a point in front of 61,000 fans.
+
+The defeat leaves Indonesia on 7 points. The two teams below them are on 6 and 5, and only the top two go through to the third round. Both remaining fixtures for every side are against teams in the bottom half of the table.
+
+Indonesia\u2019s coach said his side had "stopped playing for twenty minutes" and that the squad would recover in time for March. Indonesia\u2019s goal difference, +1, is now the weakest of the top three.`,
+    topics: ["Football", "World Cup qualifiers"],
+    publishedAt: "2026-11-24T22:40:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 8,
+    quotePrice: 1.2,
+    trainPermission: "ask",
+    trainPrice: 1500,
+    republishPrice: 480
+  },
+  {
+    id: "tf_ind_0102",
+    creatorId: "aditya",
+    kind: "article",
+    section: "Sports",
+    title: "India\u2019s under-23 football squad will train in Goa for six weeks before the March window",
+    dek: "The federation has booked two pitches and a sports-science team, a first for an age-group side.",
+    body: `India\u2019s under-23 football squad will spend six weeks at a training base in Goa from late January, according to a federation circular shared with this writer.
+
+The camp will include 32 players, with the final 23 named after two friendlies in early March. The circular says the federation has hired a four-person sports-science team for the camp, including a nutritionist and a data analyst, a first for an Indian age-group side.
+
+Two coaches said the longer camp was planned after the senior team\u2019s results this autumn. "We are asking players to be ready to step up if the senior squad needs them in March," one said.
+
+Domestic clubs will release players for the camp but have asked for injury data to be shared weekly.`,
+    topics: ["Indian football"],
+    publishedAt: "2026-11-23T09:10:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 6,
+    quotePrice: 0.8,
+    trainPermission: "ask",
+    trainPrice: 900,
+    republishPrice: 360
+  },
+  {
+    id: "tf_crk_0103",
+    creatorId: "ishita",
+    kind: "article",
+    section: "Sports",
+    title: "Pune\u2019s newest cricket academy filled 40% of its first batch with girls",
+    dek: "Coaches say a free evening slot and a female head coach made the difference.",
+    body: `A new cricket academy in Pune\u2019s Hadapsar has filled 48 of its first 120 places with girls, a share coaches say is unusual for the city.
+
+The academy offers a free evening slot from 5 pm to 7 pm, after school hours, and its head coach is a former state-level player. Parents interviewed for this piece said those two things decided it.
+
+"My daughter had been playing in the lane with her brother for years. This is the first place that came to us," said one parent, who asked that her name not be used.
+
+The academy plans a girls\u2019 under-14 team for the district tournament in February. It will need at least two more coaches to keep its ratio of one coach to twelve players.`,
+    topics: ["Cricket", "Women\u2019s cricket", "Pune"],
+    publishedAt: "2026-11-22T17:30:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 0,
+    quotePrice: 0.6,
+    trainPermission: "ask",
+    trainPrice: 700,
+    republishPrice: 240
+  },
+  {
+    id: "tf_dc_0104",
+    creatorId: "neha",
+    kind: "article",
+    section: "Tech",
+    title: "Pune\u2019s data-centre boom will need as much power as 300,000 homes, utility filings show",
+    dek: "Four new campuses have asked for 410 megawatts. The grid upgrade to supply them is two years behind.",
+    body: `Four data-centre campuses planned around Pune have applied for a combined 410 megawatts of power, according to filings with the state electricity regulator reviewed for this story. That is roughly what 300,000 homes use.
+
+The filings show the distribution company plans two new substations to serve the campuses, but neither has land allocated yet. A utility official said the earliest the upgrade could be ready is 2028.
+
+Operators say demand from AI workloads has doubled the power each rack needs since 2024. Residents in two villages near the proposed sites have objected to new transmission lines across farmland.
+
+The regulator will hear the applications on 9 December.`,
+    topics: ["Data centres", "AI", "Pune"],
+    publishedAt: "2026-11-21T08:00:00+05:30",
+    disclosure: "ai_assisted",
+    aiUses: ["research"],
+    readPrice: 10,
+    quotePrice: 1.2,
+    trainPermission: "ask",
+    trainPrice: 1900,
+    republishPrice: 600
+  },
+  {
+    id: "tf_aip_0105",
+    creatorId: "rohan",
+    kind: "article",
+    section: "Tech",
+    title: "We tracked 10,000 AI answers. Here is what they paid the people they quoted",
+    dek: "Most answers cited at least one news source. Fewer than one in five sources was paid.",
+    body: `For three weeks we asked four AI assistants the same 500 questions about Indian business and civic news, twenty times each, and logged every source they cited.
+
+Of 10,000 answers, 8,140 cited at least one article. But the publishers we could reach said they were paid for fewer than one in five of those citations. Independent writers said they were paid for none.
+
+Answers about fast-moving stories, such as company results or court rulings, leaned most heavily on a small number of original reports. In those cases a single scoop was cited in hundreds of answers within a day.
+
+Two assistant makers said they were "exploring licensing models". None shared rates. This piece is free to read; the data behind it is licensed separately.`,
+    topics: ["AI", "Media & AI"],
+    publishedAt: "2026-11-20T11:00:00+05:30",
+    disclosure: "ai_assisted",
+    aiUses: ["research", "proofreading"],
+    readPrice: 0,
+    quotePrice: 1.5,
+    trainPermission: "no",
+    trainPrice: 2500,
+    republishPrice: 700
+  },
+  {
+    id: "tf_sol_0106",
+    creatorId: "meghna",
+    kind: "article",
+    section: "Climate",
+    title: "In drought-hit Marathwada, solar parks now pay farmers more than their crops",
+    dek: "Leasing land to solar developers earns \u20B975,000 an acre a year, three times a good soybean season.",
+    body: `Farmers in three Marathwada districts are leasing dry land to solar developers for about \u20B975,000 an acre a year, roughly three times what a good soybean season brings, according to lease agreements and interviews with eleven farmers.
+
+The leases run for 25 years. Developers pay a fixed rent that rises 3% a year, and farmers keep the right to graze animals under the panels.
+
+"After the last two monsoons, I would rather have rent than rain," said one farmer in Latur district.
+
+Agricultural economists warn that a large shift could cut local food production and jobs for farm labourers, who do not share in the rent. The district administration has started mapping how much irrigated land is being leased.`,
+    topics: ["Solar energy", "Farming", "Drought"],
+    publishedAt: "2026-11-19T07:45:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 9,
+    quotePrice: 1.1,
+    trainPermission: "ask",
+    trainPrice: 1600,
+    republishPrice: 540
+  },
+  {
+    id: "tf_mon_0107",
+    creatorId: "meghna",
+    kind: "article",
+    section: "Climate",
+    title: "Mumbai\u2019s late monsoon added \u20B99 to a kilo of tomatoes. Here\u2019s the chain of events",
+    dek: "A nine-day delay in June shifted planting, then supply, then prices, all the way to November.",
+    body: `The monsoon reached Mumbai nine days late this June. Five months later, tomatoes at the city\u2019s wholesale market cost \u20B99 a kilo more than last November, according to market records.
+
+The delay pushed planting back across the main growing belts. Farmers who planted late harvested into the October rains, which damaged about a fifth of the crop, traders said.
+
+Onion prices rose less, because more stock was stored from the previous season. Leafy vegetables, which grow fast, recovered within weeks.
+
+Traders expect tomato prices to ease by mid-December as the next harvest arrives, if the winter stays dry.`,
+    topics: ["Monsoon", "Food prices", "Mumbai"],
+    publishedAt: "2026-11-18T06:30:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 7,
+    quotePrice: 0.9,
+    trainPermission: "ask",
+    trainPrice: 1200,
+    republishPrice: 420
+  },
+  {
+    id: "tf_blr_0108",
+    creatorId: "rohan",
+    kind: "article",
+    section: "Cities",
+    title: "Bengaluru\u2019s new bus lanes cut a typical commute by 18% in their first month",
+    dek: "GPS data from 1,900 buses shows the biggest gains on the outer ring road. Car traffic did not get worse.",
+    body: `Buses on Bengaluru\u2019s four new dedicated lanes were 18% faster in their first month than in the same weeks last year, according to GPS data from 1,900 buses obtained under the Right to Information Act.
+
+The biggest gain was on the outer ring road, where the average evening trip fell from 64 minutes to 49. Average car speeds on the same stretches changed by less than 2%, the data shows.
+
+Ridership on the four routes rose 11%. The transport corporation says it will add three more corridors next year if enforcement holds; a third of the lane length is still regularly blocked by parked vehicles.`,
+    topics: ["Bengaluru", "Metro & transport"],
+    publishedAt: "2026-11-17T08:20:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 0,
+    quotePrice: 0.8,
+    trainPermission: "ask",
+    trainPrice: 900,
+    republishPrice: 300
+  },
+  {
+    id: "tf_flm_0109",
+    creatorId: "tanvi",
+    kind: "article",
+    section: "Culture",
+    title: "The Marathi indie film that sold out every Pune screen without a trailer",
+    dek: "Word of mouth, two college screenings and a \u20B999 ticket did what a marketing budget could not.",
+    body: `A \u20B91.2 crore Marathi film about a mother running a tea stall outside a Pune bus depot sold out all 34 of its weekend shows in the city, without releasing a trailer.
+
+The director held two free screenings at engineering colleges a fortnight before release and set the first-week ticket at \u20B999. Students posted clips of the audience reaction, not of the film.
+
+Cinema managers said the film had the highest weekend occupancy of any Marathi release this year, at 91%. Its distributor has added 60 screens across Maharashtra for next week.
+
+"We had no money for promotion, so we spent it on the audience instead," the director said.`,
+    topics: ["Marathi cinema", "Films", "Pune"],
+    publishedAt: "2026-11-16T19:00:00+05:30",
+    disclosure: "human",
+    aiUses: [],
+    readPrice: 5,
+    quotePrice: 0.6,
+    trainPermission: "no",
+    trainPrice: 800,
+    republishPrice: 240
+  }
+];
+var ref = (label, slug) => ({ label: `${label} (Wikipedia)`, url: `https://en.wikipedia.org/wiki/${slug}` });
+var META = {
+  tf_vlt_0001: {
+    image: { url: u("photo-1567789884554-0b844b597180"), alt: "Robotic arms on a car assembly line", credit: "Lenny Kuhne / Unsplash" },
+    keywords: ["EVs", "Lithium", "Stock market", "Auto industry", "Commodities"],
+    context: { why: "A hidden 18% jump in lithium costs could wipe out the cost savings Voltaris promised investors ahead of its share sale.", who: "Shareholders and buyers in the December share sale, EV makers that buy Voltaris packs, and eventually EV buyers.", fact: "One tonne of lithium carbonate holds enough lithium for roughly 15\u201320 mid-size EV battery packs." },
+    refs: [ref("Lithium-ion battery", "Lithium-ion_battery"), ref("Lithium triangle", "Lithium_triangle")],
+    likes: 1240,
+    shares: 312,
+    comments: [
+      { name: "Kunal M.", text: "This is why I pay for independent reporting. Nobody else had the memo.", ago: "2 d" },
+      { name: "Priya S.", text: "Will the share sale price change? Would love a follow-up.", ago: "1 d" },
+      { name: "Harsh V.", text: "FinPilot flagged this to me before I placed an order. Credited Riya too.", ago: "9 h" }
+    ]
+  },
+  tf_sfm_0002: {
+    image: { url: u("photo-1708015397568-60ec9b8cde88"), alt: "Construction site with a bulldozer", credit: "Christopher / Unsplash" },
+    keywords: ["EVs", "Auto industry", "Stock market", "Pune"],
+    context: { why: "Investor forecasts assume the plant adds capacity by 2029; a land gap pushes that out.", who: "Saffron shareholders, the 63 landowning families, and suppliers planning around the plant.", fact: "An acre is about 0.4 hectares, roughly three-quarters of a football pitch." },
+    refs: [ref("Land acquisition in India", "Land_acquisition_in_India")],
+    likes: 640,
+    shares: 120,
+    comments: [{ name: "Amol T.", text: "Chakan farmers have been saying this for months.", ago: "2 w" }]
+  },
+  tf_lth_0003: {
+    image: { url: u("photo-1709489662983-3674d790b224"), alt: "Truck on a dirt road at a mine", credit: "Curioso Photography / Unsplash" },
+    keywords: ["Lithium", "Commodities", "EVs"],
+    context: { why: "Battery costs drive EV prices, and lithium is the most volatile input.", who: "EV makers, battery makers and anyone buying an EV in the next two years.", fact: "Most of the world\u2019s lithium brine comes from a high-altitude region spanning three South American countries." },
+    refs: [ref("Lithium", "Lithium"), ref("Lithium triangle", "Lithium_triangle")],
+    likes: 410,
+    shares: 95,
+    comments: []
+  },
+  tf_gw_0004: {
+    image: { url: u("photo-1686072368055-7e1be988d358"), alt: "Red umbrella on cracked dry earth", credit: "Amritansh Dubey / Unsplash" },
+    keywords: ["Groundwater", "Drought", "Farming", "Monsoon"],
+    context: { why: "Monthly village-well data shows water stress years before official twice-yearly readings do.", who: "Farmers, district planners, crop insurers and lenders in Marathwada.", fact: "Sugarcane needs roughly 2,000\u20132,500 mm of water a season, several times what most pulses need." },
+    refs: [ref("Groundwater", "Groundwater"), ref("Marathwada", "Marathwada")],
+    likes: 520,
+    shares: 210,
+    comments: [{ name: "Dr. S. Kale", text: "Would licence this for our crop-insurance model.", ago: "5 d" }]
+  },
+  tf_ph_0005: {
+    image: { url: u("photo-1672413514634-4781b15fd89e"), alt: "Several phones on a table", credit: "kuaileqie RE / Unsplash" },
+    keywords: ["Smartphones", "Gadget reviews"],
+    context: { why: "Advertised battery capacity barely predicts real battery life; the modem matters as much.", who: "Anyone buying a mid-range phone this season.", fact: "Phones use more power on a weak signal because the radio boosts its transmit power." },
+    refs: [ref("Lithium-ion battery", "Lithium-ion_battery")],
+    likes: 2210,
+    shares: 480,
+    comments: [{ name: "Rahul P.", text: "Finally someone tested on weak signal.", ago: "4 d" }]
+  },
+  tf_mtr_0006: {
+    image: { url: u("photo-1718544680232-97cabf5cc1db"), alt: "Train pulling into a station beside tall buildings", credit: "Xavier Praillet / Unsplash" },
+    keywords: ["Pune", "Metro & transport", "Civic issues"],
+    context: { why: "Paying 62% before testing reduces the city\u2019s leverage if the system fails.", who: "Commuters on the planned line, taxpayers, and the contractor.", fact: "Signalling decides how close trains can run, which sets a metro line\u2019s real capacity." },
+    refs: [ref("Right to Information Act, 2005", "Right_to_Information_Act,_2005")],
+    likes: 870,
+    shares: 260,
+    comments: [{ name: "Neeta R.", text: "Penalty waived twice? Who signed off?", ago: "5 d" }]
+  },
+  tf_sfd_0007: {
+    image: { url: u("photo-1520548729987-7fba97e811c7"), alt: "Rows of cars, in black and white", credit: "Noah Negishi / Unsplash" },
+    keywords: ["Auto industry", "Stock market"],
+    context: { why: "High dealer stock often comes before discounts or a production cut.", who: "Dealers, buyers looking for festive discounts, Saffron shareholders.", fact: "41 days of stock means dealers hold about six weeks of sales on their lots." },
+    refs: [ref("Channel stuffing", "Channel_stuffing")],
+    likes: 380,
+    shares: 70,
+    comments: []
+  },
+  tf_idn_0101: {
+    image: { url: u("photo-1489944440615-453fc2b6a9a9"), alt: "A football stadium from above", credit: "Mario Klassen / Unsplash" },
+    keywords: ["Football", "World Cup qualifiers", "Indonesia"],
+    context: { why: "With three teams within two points, every remaining result changes who goes through, including teams that did not play.", who: "Fans and federations of every Group D side.", fact: "Goal difference is usually the first tie-breaker when teams finish level on points." },
+    refs: [ref("Association football", "Association_football"), ref("FIFA World Cup qualification", "FIFA_World_Cup_qualification")],
+    likes: 1890,
+    shares: 640,
+    comments: [{ name: "Sourav D.", text: "Doesn\u2019t this help India? Same group.", ago: "1 h" }, { name: "Leena F.", text: "Wild second half.", ago: "2 h" }]
+  },
+  tf_ind_0102: {
+    image: { url: u("photo-1579952363873-27f3bade9f55"), alt: "A football on green grass", credit: "Connor Coyne / Unsplash" },
+    keywords: ["Indian football", "Football", "World Cup qualifiers"],
+    context: { why: "A long camp signals the federation may lean on younger players in the March qualifiers.", who: "Young players, their clubs, and fans following the qualifiers.", fact: "Sports-science teams track load (how hard each player trains) to cut soft-tissue injuries." },
+    refs: [ref("Association football", "Association_football")],
+    likes: 960,
+    shares: 210,
+    comments: [{ name: "Arjun K.", text: "About time an age-group side got this support.", ago: "1 d" }]
+  },
+  tf_crk_0103: {
+    image: { url: u("photo-1765915550935-578b594ac76b"), alt: "Groundsmen covering a cricket pitch", credit: "Khurshid Dustmurodov / Unsplash" },
+    keywords: ["Cricket", "Women\u2019s cricket", "Pune"],
+    context: { why: "Timing and visible role models change who shows up, more than fees alone.", who: "Girls who want to play, parents, and coaches in Pune.", fact: "A cricket pitch is 22 yards long, a measure older than the metric system." },
+    refs: [ref("Women\u2019s cricket", "Women%27s_cricket")],
+    likes: 1320,
+    shares: 400,
+    comments: [{ name: "Meera J.", text: "Sharing with every parent in my society group.", ago: "2 d" }]
+  },
+  tf_dc_0104: {
+    image: { url: u("photo-1558494949-ef010cbdcc31"), alt: "Network cables in a server room", credit: "Taylor Vick / Unsplash" },
+    keywords: ["Data centres", "AI", "Pune"],
+    context: { why: "If the grid upgrade lags, either data centres wait or other users face cuts.", who: "Pune residents, nearby villages, and companies planning AI workloads.", fact: "A single AI training rack can draw more power than ten homes." },
+    refs: [ref("Data center", "Data_center")],
+    likes: 730,
+    shares: 190,
+    comments: [{ name: "Vikram S.", text: "Our society already has two cuts a week.", ago: "3 d" }]
+  },
+  tf_aip_0105: {
+    image: { url: u("photo-1488509082528-cefbba5ad692"), alt: "Person using a smartphone", credit: "Priscilla Du Preez / Unsplash" },
+    keywords: ["AI", "Media & AI"],
+    context: { why: "It measures the gap Twofold exists to close: AI cites reporting but rarely pays for it.", who: "Journalists, publishers, AI companies and their users.", fact: "In the study, a single scoop could be cited in hundreds of AI answers within a day." },
+    refs: [ref("Generative artificial intelligence", "Generative_artificial_intelligence")],
+    likes: 3010,
+    shares: 1120,
+    comments: [{ name: "Ananya G.", text: "This should be required reading for every newsroom.", ago: "4 d" }]
+  },
+  tf_sol_0106: {
+    image: { url: u("photo-1509391366360-2e959784a276"), alt: "Solar panels on a green field", credit: "American Public Power Association / Unsplash" },
+    keywords: ["Solar energy", "Farming", "Drought", "Groundwater"],
+    context: { why: "Rent beats crops in dry years, which could reshape land use across the region.", who: "Landowning farmers, landless farm workers, and food supply in the district.", fact: "One megawatt of ground-mounted solar typically needs four to five acres." },
+    refs: [ref("Solar power in India", "Solar_power_in_India"), ref("Marathwada", "Marathwada")],
+    likes: 1150,
+    shares: 330,
+    comments: [{ name: "Ganesh B.", text: "What happens to the labourers? Good that you asked.", ago: "6 d" }]
+  },
+  tf_mon_0107: {
+    image: { url: u("photo-1519692933481-e162a57d6721"), alt: "Person with an umbrella on a rainy street", credit: "Osman Rana / Unsplash" },
+    keywords: ["Monsoon", "Food prices", "Mumbai", "Farming"],
+    context: { why: "A weather delay in June still shows up in your vegetable bill in November.", who: "Households, vegetable vendors and farmers in the supply belt.", fact: "Tomatoes take about 60\u201380 days from planting to first harvest." },
+    refs: [ref("Monsoon of South Asia", "Monsoon_of_South_Asia")],
+    likes: 780,
+    shares: 150,
+    comments: []
+  },
+  tf_blr_0108: {
+    image: { url: u("photo-1487762488615-8a011458b53e"), alt: "Red bus seen from a window", credit: "Anjana Menon / Unsplash" },
+    keywords: ["Bengaluru", "Metro & transport", "Civic issues"],
+    context: { why: "Evidence that bus lanes help buses without slowing cars undercuts the usual objection.", who: "Bus riders, drivers and other cities weighing the same idea.", fact: "A full city bus can carry as many people as 40 to 50 cars." },
+    refs: [ref("Bus lane", "Bus_lane")],
+    likes: 1490,
+    shares: 520,
+    comments: [{ name: "Deepa N.", text: "Can Pune please copy this.", ago: "1 w" }]
+  },
+  tf_flm_0109: {
+    image: { url: u("photo-1571366657764-16ca342d3284"), alt: "Crowd on a city street at night", credit: "Lerone Pieters / Unsplash" },
+    keywords: ["Marathi cinema", "Films", "Pune"],
+    context: { why: "Audience-first promotion can beat a marketing budget for small regional films.", who: "Independent filmmakers, cinema owners and Marathi audiences.", fact: "91% occupancy means almost every seat in every show was sold." },
+    refs: [ref("Marathi cinema", "Marathi_cinema")],
+    likes: 2380,
+    shares: 900,
+    comments: [{ name: "Sneha L.", text: "Saw it twice. The tea-stall scene!", ago: "1 w" }]
+  }
+};
+function metaFor(id, category, topics) {
+  return META[id] || {
+    image: id.startsWith("tf_saf") ? PHOTOS.assembly : id.startsWith("tf_mer") ? PHOTOS.tractor : PHOTOS.category[category],
+    keywords: topics.length ? topics : [category],
+    context: { why: "Fresh, original reporting that others are only starting to pick up.", who: "Readers who follow this topic, and people affected by it.", fact: "Pieces like this are worth most to readers and AI systems in their first 36 hours." },
+    refs: [],
+    likes: 0,
+    shares: 0,
+    comments: []
+  };
+}
+
+// src/data/meta.ts
+function categoryOf(w) {
+  return SECTION_TO_CATEGORY[w.section] || "Markets";
+}
+function decorate(w) {
+  const category = categoryOf(w);
+  const meta = metaFor(w.id, category, w.topics);
+  if (w.live && !meta.refs.length) {
+    const kws = [.../* @__PURE__ */ new Set([...guessKeywords(`${w.title} ${w.dek} ${w.body}`), ...w.topics])].slice(0, 5);
+    return { ...w, category, meta: { ...meta, keywords: kws.length ? kws : [category] } };
+  }
+  return { ...w, category, meta };
+}
+function guessKeywords(text) {
+  const t = text.toLowerCase();
+  const all = CATEGORY_LIST.flatMap((c) => c.keywords);
+  return all.filter((k) => k !== "Books" && new RegExp(`\\b${k.toLowerCase().replace(/s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`).test(t)).slice(0, 5);
+}
+
+// src/engine/similarity.ts
+var STOP = new Set("a an the and or but if of in on at to for from by with as is are was were be been it its this that these those there their they them he she his her we our you your i not no yes do does did has have had will would could should can may might than then so such into over under about after before while what which who whom whose when where why how all any each more most other some only own same very just also new news says said say per year years week weeks month months day days one two three".split(" "));
+var SYNONYMS = {
+  football: ["soccer", "qualifiers", "qualifier", "striker", "goal", "goals", "squad", "fixture", "fixtures"],
+  qualifiers: ["qualifier", "qualification", "world cup", "group"],
+  india: ["indian", "india\u2019s", "india's"],
+  cricket: ["academy", "pitch", "wicket", "batting", "bowling"],
+  ev: ["evs", "electric", "vehicle", "vehicles", "battery", "batteries", "cells"],
+  evs: ["ev", "electric", "battery"],
+  lithium: ["battery", "batteries", "brine", "carbonate"],
+  monsoon: ["rain", "rains", "rainfall", "kharif"],
+  drought: ["dry", "groundwater", "water"],
+  farming: ["farmers", "farmer", "crop", "crops", "tractor", "tractors", "soybean", "agricultural"],
+  ai: ["assistant", "assistants", "model", "models", "agents", "chatbot"],
+  "data centres": ["data centre", "data center", "data centers", "campuses", "racks", "grid"],
+  solar: ["panels", "renewable", "megawatt", "megawatts"],
+  metro: ["bus", "buses", "transport", "commute", "lanes", "line", "signalling"],
+  stock: ["shares", "share", "investors", "stock market", "exchange"],
+  bank: ["banking", "loans", "loan", "credit", "lender"],
+  film: ["films", "cinema", "screen", "screens", "director"],
+  prices: ["price", "cost", "costs", "inflation"]
+};
+var RELATIONS = [
+  { from: ["india", "indian football"], to: ["indonesia"], context: ["football", "qualifiers", "qualifier", "world cup", "soccer"], reason: "Indonesia is in India\u2019s qualifying group, so their results change India\u2019s chances" },
+  { from: ["indonesia"], to: ["india", "indian football"], context: ["football", "qualifiers"], reason: "Same qualifying group as India" },
+  { from: ["ev", "evs", "electric", "voltaris", "saffron", "auto"], to: ["lithium"], reason: "Lithium prices set battery costs, the biggest cost in an EV" },
+  { from: ["lithium"], to: ["voltaris", "evs", "auto industry"], reason: "EV and battery makers carry lithium price risk" },
+  { from: ["farming", "farmers", "tractor", "loans", "meridian", "food", "vegetable", "tomatoes"], to: ["monsoon", "groundwater", "drought"], reason: "Rain and groundwater drive farm incomes, rural credit and food prices" },
+  { from: ["monsoon", "drought", "groundwater"], to: ["farming", "food prices", "solar energy", "banking"], reason: "Weak rains ripple into farm incomes, land use and loans" },
+  { from: ["ai", "chatbot", "assistant"], to: ["data centres", "media & ai"], reason: "AI demand drives data-centre power use and how news gets paid" },
+  { from: ["power", "electricity", "grid"], to: ["data centres"], reason: "Data centres are now among the largest new loads on city grids" },
+  { from: ["stock", "shares", "investing", "market"], to: ["auto industry", "evs", "banking", "lithium"], reason: "Company news that moves listed shares" }
+];
+function tokenize(text) {
+  return text.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9'&\s-]/g, " ").split(/\s+/).map((w) => w.replace(/^'+|'+$/g, "").replace(/'s$/, "")).filter((w) => w.length > 1 && !STOP.has(w));
+}
+function expand(tokens, phrase) {
+  const out = /* @__PURE__ */ new Map();
+  const add = (t, w) => out.set(t, Math.max(out.get(t) || 0, w));
+  for (const t of tokens) add(t, 1);
+  for (const [k, syn] of Object.entries(SYNONYMS)) {
+    if (tokens.includes(k) || phrase.includes(k)) for (const s of syn) for (const st of tokenize(s)) add(st, 0.55);
+  }
+  return out;
+}
+var Index = class {
+  docs = [];
+  idf = /* @__PURE__ */ new Map();
+  constructor(docs) {
+    const df = /* @__PURE__ */ new Map();
+    const raw = docs.map((d) => {
+      const tokens = [
+        ...rep(tokenize(d.title), 3),
+        ...rep(tokenize(d.dek), 2),
+        ...rep(d.keywords.flatMap((k) => tokenize(k)), 3),
+        ...tokenize(d.body)
+      ];
+      const tf = /* @__PURE__ */ new Map();
+      for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+      for (const t of tf.keys()) df.set(t, (df.get(t) || 0) + 1);
+      return { doc: d, tf, kw: d.keywords.map((k) => k.toLowerCase()), text: `${d.title} ${d.dek} ${d.keywords.join(" ")} ${d.body}`.toLowerCase(), head: `${d.title} ${d.keywords.join(" ")}`.toLowerCase() };
+    });
+    const n = docs.length;
+    for (const [t, c] of df) this.idf.set(t, Math.log(1 + n / c));
+    this.docs = raw.map((r) => {
+      let s = 0;
+      for (const [t, c] of r.tf) {
+        const w = (1 + Math.log(c)) * (this.idf.get(t) || 0);
+        s += w * w;
+      }
+      return { ...r, norm: Math.sqrt(s) || 1 };
+    });
+  }
+  w(d, t) {
+    const c = d.tf.get(t);
+    return c ? (1 + Math.log(c)) * (this.idf.get(t) || 0) : 0;
+  }
+  /** Search with direct + indirect relevance, each result explained. */
+  search(query, limit = 6, excludeId) {
+    const phrase = query.toLowerCase();
+    const qt = tokenize(query);
+    const q = expand(qt, phrase);
+    let qn = 0;
+    for (const [t, wq] of q) {
+      const w = wq * (this.idf.get(t) || 1);
+      qn += w * w;
+    }
+    qn = Math.sqrt(qn) || 1;
+    const results = this.docs.filter((d) => d.doc.id !== excludeId).map((d) => {
+      let dot = 0;
+      const matched = [];
+      for (const [t, wq] of q) {
+        const wd = this.w(d, t);
+        if (wd) {
+          dot += wq * (this.idf.get(t) || 1) * wd;
+          if (wq === 1) matched.push(t);
+        }
+      }
+      const direct = dot / (qn * d.norm);
+      const kwHits = d.doc.keywords.filter((k) => {
+        const kl = k.toLowerCase();
+        return qt.some((t) => kl.split(/\s+/).includes(t)) || phrase.includes(kl);
+      });
+      let indirect = 0;
+      let reason = "";
+      let relFrom = [];
+      for (const r of RELATIONS) {
+        const qHas = r.from.some((f) => qt.includes(f) || phrase.includes(f));
+        const ctxOk = !r.context || r.context.some((c) => qt.includes(c) || phrase.includes(c) || d.text.includes(c));
+        const dHas = r.to.some((t2) => d.kw.includes(t2) || new RegExp(`\\b${t2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(d.head));
+        if (qHas && ctxOk && dHas) {
+          if (0.32 > indirect) {
+            indirect = 0.32;
+            reason = r.reason;
+            relFrom = r.from;
+          }
+        }
+      }
+      const score = Math.min(0.99, direct * 1.6 + kwHits.length * 0.12 + indirect);
+      const namesSubject = relFrom.some((f) => new RegExp(`\\b${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(d.head));
+      const directPart = direct * 1.6 + kwHits.length * 0.12;
+      const kind = reason && !namesSubject ? "indirect" : directPart >= 0.22 ? "direct" : "indirect";
+      const mentions = `Mentions ${dedupe([...kwHits, ...matched.slice(0, 3)]).slice(0, 3).join(", ") || "your terms"}`;
+      const why = kind === "direct" ? mentions : reason;
+      const alsoBecause = kind === "direct" && reason ? reason : kind === "indirect" && directPart >= 0.22 ? mentions.replace("Mentions", "Also about") : void 0;
+      return { id: d.doc.id, doc: d.doc, score: Math.round(score * 100) / 100, kind, why, alsoBecause, matched: [...new Set(matched)].slice(0, 6) };
+    });
+    return results.filter((r) => r.score >= 0.12 && (r.kind === "direct" || r.why)).sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+  /** Related stories for a given document. */
+  related(id, limit = 4) {
+    const d = this.docs.find((x) => x.doc.id === id);
+    if (!d) return [];
+    const q = `${d.doc.title} ${d.doc.keywords.join(" ")}`;
+    return this.search(q, limit + 2, id).slice(0, limit).map((r) => {
+      const shared = r.doc.keywords.filter((k) => d.doc.keywords.map((x) => x.toLowerCase()).includes(k.toLowerCase()));
+      return shared.length ? { ...r, kind: "direct", why: `Shared topic: ${shared.slice(0, 2).join(", ")}` } : r;
+    });
+  }
+};
+function rep(xs, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(...xs);
+  return out;
+}
+function dedupe(xs) {
+  const seen = /* @__PURE__ */ new Set();
+  return xs.filter((x) => {
+    const k = x.toLowerCase();
+    if ([...seen].some((s) => s.includes(k))) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 // src/engine/mcp.ts
 var PROTOCOL_VERSION = "2025-06-18";
 var DEMO_AGENTS = {
@@ -109,7 +707,7 @@ var DEMO_AGENTS = {
   "demo-halcyon": { id: "halcyon", name: "Halcyon Labs" }
 };
 var TOOLS = [
-  { name: "search_works", description: "Find works by topic or keyword. Free. Returns ids, titles, creators, dates and access tier.", inputSchema: { type: "object", properties: { query: { type: "string" }, kind: { type: "string", enum: ["article", "video", "dataset"] } }, required: ["query"] } },
+  { name: "search_works", description: "Search works by meaning, not just keywords. Free. Returns direct matches and indirectly relevant works, each with a relevance score (0-1) and the reason, plus creator, date and access tier.", inputSchema: { type: "object", properties: { query: { type: "string" }, kind: { type: "string", enum: ["article", "video", "dataset"] } }, required: ["query"] } },
   { name: "get_work_metadata", description: "Creator, date, disclosure (human / AI-assisted), provenance seal and the machine-readable licence. Free.", inputSchema: { type: "object", properties: { work_id: { type: "string" } }, required: ["work_id"] } },
   { name: "get_work_preview", description: "Short summary, key facts and the free preview words, so you can judge relevance before paying. Free.", inputSchema: { type: "object", properties: { work_id: { type: "string" } }, required: ["work_id"] } },
   { name: "get_full_work", description: "Full text for a given use. Without a valid licence token returns access_required with offers.", inputSchema: { type: "object", properties: { work_id: { type: "string" }, use: { type: "string", enum: ["ai_quote", "ai_train", "republish", "read"] }, licence_token: { type: "string" } }, required: ["work_id", "use"] } },
@@ -127,12 +725,12 @@ function keyFacts(w) {
 }
 function offers(w) {
   return Object.keys(w.licence.uses).map((k) => {
-    const u = w.licence.uses[k];
+    const u2 = w.licence.uses[k];
     return {
       use: k,
-      permission: u.permission,
-      ...u.permission === "paid" ? { price: { amount: u.price, currency: "INR", unit: USE_META[k].unitLong } } : {},
-      ...u.permission === "ask" ? { indicative_price: { amount: u.price, currency: "INR" }, how: "Request via the creator; not purchasable instantly." } : {}
+      permission: u2.permission,
+      ...u2.permission === "paid" ? { price: { amount: u2.price, currency: "INR", unit: USE_META[k].unitLong } } : {},
+      ...u2.permission === "ask" ? { indicative_price: { amount: u2.price, currency: "INR" }, how: "Request via the creator; not purchasable instantly." } : {}
     };
   });
 }
@@ -154,12 +752,26 @@ function handleMcp(req, ctx, auth) {
   if (name !== "search_works" && !w) return tool({ error: "not_found", message: `No work with id ${a.work_id}` }, true);
   switch (name) {
     case "search_works": {
-      const q = (a.query || "").toLowerCase().split(/\s+/).filter(Boolean);
-      const hits = ctx.works.map((x) => {
-        const hay = `${x.title} ${x.dek} ${x.topics.join(" ")} ${x.body}`.toLowerCase();
-        return { x, score: q.reduce((s, t) => s + (hay.includes(t) ? x.title.toLowerCase().includes(t) ? 3 : 1 : 0), 0) };
-      }).filter((h) => h.score > 0 && (!a.kind || h.x.kind === a.kind)).sort((p, r) => r.score - p.score || r.x.publishedAt.localeCompare(p.x.publishedAt)).slice(0, 5).map(({ x }) => ({ work_id: x.id, title: x.title, creator: ctx.creatorName(x.creatorId), published_at: x.publishedAt, kind: x.kind, access: x.licence.uses.ai_quote.permission === "paid" ? `ai_quote \u20B9${x.licence.uses.ai_quote.price}/answer` : x.licence.uses.ai_quote.permission }));
-      return tool({ results: hits, cost: 0 });
+      const pool = ctx.works.filter((x) => !a.kind || x.kind === a.kind);
+      const docs = pool.map((x) => {
+        const d = decorate(x);
+        return { id: x.id, title: x.title, dek: x.dek, body: x.body, keywords: d.meta.keywords, category: d.category, publishedAt: x.publishedAt };
+      });
+      const byId = new Map(pool.map((x) => [x.id, x]));
+      const hits = new Index(docs).search(a.query || "", 6).map((r) => {
+        const x = byId.get(r.id);
+        return {
+          work_id: x.id,
+          title: x.title,
+          creator: ctx.creatorName(x.creatorId),
+          published_at: x.publishedAt,
+          kind: x.kind,
+          category: r.doc.category,
+          relevance: { score: r.score, match: r.kind, why: r.why, ...r.alsoBecause ? { also: r.alsoBecause } : {} },
+          access: x.licence.uses.ai_quote.permission === "paid" ? `ai_quote \u20B9${x.licence.uses.ai_quote.price}/answer` : x.licence.uses.ai_quote.permission
+        };
+      });
+      return tool({ query: a.query, results: hits, note: "Ranked by meaning (TF-IDF with concept expansion). match=indirect means the work does not mention your terms but is relevant for the reason given.", cost: 0 });
     }
     case "get_work_metadata":
       return tool({
@@ -342,7 +954,8 @@ var CREATORS = {
   riya: { id: "riya", name: "Riya Deshpande", handle: "@riya.d", beat: "Independent markets reporter", location: "Pune", reputation: 0.78, pastPieces: 46, followers: 3200, joined: "2025", verified: true, avatarHue: 18 },
   arjun: { id: "arjun", name: "Dr Arjun Rao", handle: "@arjun.water", beat: "Hydrologist, independent researcher", location: "Aurangabad", reputation: 0.85, pastPieces: 9, followers: 900, joined: "2026", verified: true, avatarHue: 200 },
   kabir: { id: "kabir", name: "Kabir Sethi", handle: "@kabirtests", beat: "Phone reviewer, video creator", location: "Delhi", reputation: 0.62, pastPieces: 31, followers: 5400, joined: "2025", verified: true, avatarHue: 280 },
-  neha: { id: "neha", name: "Neha Kulkarni", handle: "@nehak", beat: "Civic reporter", location: "Pune", reputation: 0.7, pastPieces: 22, followers: 1800, joined: "2026", verified: true, avatarHue: 140 }
+  neha: { id: "neha", name: "Neha Kulkarni", handle: "@nehak", beat: "Civic reporter", location: "Pune", reputation: 0.7, pastPieces: 22, followers: 1800, joined: "2026", verified: true, avatarHue: 140 },
+  ...NEW_CREATORS
 };
 var SEED_WORKS = [
   {
@@ -495,11 +1108,12 @@ A metro spokesperson said the extensions were "due to site handover delays outsi
     trainPermission: "no",
     trainPrice: 3e3,
     republishPrice: 540
-  }
+  },
+  ...NEW_WORKS
 ];
 
 // src/data/seedSeals.ts
-var seedSeals_default = { "keys": { "riya": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256", "d": "diReO_Nrc3uRo6sYdPUEiKc5FIgxAVHXc04tyAsgNyQ" } }, "arjun": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "tulPS-onO7EnaazaGhbX7W2OC_06IvTbycFOKOIMEuQ", "y": "IOhJ3WNSTV-asa1_g3nlUUMSrmO9JYYxKAZy2GbGph4", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "tulPS-onO7EnaazaGhbX7W2OC_06IvTbycFOKOIMEuQ", "y": "IOhJ3WNSTV-asa1_g3nlUUMSrmO9JYYxKAZy2GbGph4", "crv": "P-256", "d": "EwrwfouUqki7iF9hP3djKqMIk4ur9mwn3bA2OedXBwU" } }, "kabir": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "t_Z0dHkCPrEGrHZdWUZNeYfQammZnrsmO8cPPn5DPsM", "y": "8p3xXMe_jYvvbzD52Z6GpxTKjKP3wPwel1pyT4EAjfw", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "t_Z0dHkCPrEGrHZdWUZNeYfQammZnrsmO8cPPn5DPsM", "y": "8p3xXMe_jYvvbzD52Z6GpxTKjKP3wPwel1pyT4EAjfw", "crv": "P-256", "d": "8te6CngHdZyb4L-ybhDl9Mzt4UpYHV1KwxHqZsidVDo" } }, "neha": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "fMItHX93bo_sypHMo1i-lrlIC0oh-4Dz7_jPScnQdpw", "y": "dd3gj7ninZf-6c5BEP7pe5tmklBeAriahDJVIAoS5k0", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "fMItHX93bo_sypHMo1i-lrlIC0oh-4Dz7_jPScnQdpw", "y": "dd3gj7ninZf-6c5BEP7pe5tmklBeAriahDJVIAoS5k0", "crv": "P-256", "d": "XhWalp-VsHf01Q-8Im1G-z4TgUDlz5QAJFsb7DFarGQ" } } }, "seals": { "tf_sfd_0007": { "workId": "tf_sfd_0007", "contentHash": "sha256:e1eb47c0eff9f19610ff713b7278cc97c07babca5e79d79692e8584c6a3f9f4b", "creatorId": "riya", "signedAt": "2026-10-21T08:00:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "yfAOD98971UvKuwwj0TSB1EgIpsA3/j5mbbqhYaWBhDXfcMVKw5dpXYgnLWC/h6XiusL467kyEonrM5cuelRJw==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256" } }, "tf_vlt_0001": { "workId": "tf_vlt_0001", "contentHash": "sha256:f3802caa3432ddabdf97e6edcfc88634ca0330bead1d6bdd14970a897b7058a0", "creatorId": "riya", "signedAt": "2026-11-21T10:02:00+05:30", "origin": "ai_assisted", "aiAssistance": ["proofreading"], "version": 1, "signature": "WhPTjVP6xzzy2GcUqtM2DJLAAIK18zhDZagC4yafRavLAK2oCUZhCN9Qkan83Gq28otdfVibU2hAru9psVhK2w==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256" } }, "tf_sfm_0002": { "workId": "tf_sfm_0002", "contentHash": "sha256:c20304203b95e9b3e7a3e8d2427f2c93d9d27211dc7e3d2bfab4e0afce98b22c", "creatorId": "riya", "signedAt": "2026-11-07T08:40:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "X/pS5AbcV8P9xHjzuA8xWo2HSOgSU1HJWPkKYKCfrckqg8v1PY7NRG4tudWesQnpoHpD/De3nHjpdUY8idscqA==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256" } }, "tf_lth_0003": { "workId": "tf_lth_0003", "contentHash": "sha256:f2b027a8cfad2157bcfaf50e839073d6ec65e2be1d6709447bc8bb38a48ce572", "creatorId": "riya", "signedAt": "2026-10-30T09:15:00+05:30", "origin": "ai_assisted", "aiAssistance": ["research", "proofreading"], "version": 1, "signature": "u7ihT8uViZmG9HnhojxSE0kigURJtOk3C74XjX9Z7fpTFW5pSTESzHfjj2Raf57D7F2Yh4t+HlK0iExANfygWg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "jPbkklKPwYAfnD1ueZPRq2bd5nTwaNp9pjc0CIbArfs", "y": "aTqAjUDhLpUxrlWQz_QnFydp8TznjA0bhhna7P2tpvY", "crv": "P-256" } }, "tf_gw_0004": { "workId": "tf_gw_0004", "contentHash": "sha256:bff852938c08a02338b7d3c5cd357436e250accf13f4ece0f03410986c234ee3", "creatorId": "arjun", "signedAt": "2026-11-12T12:00:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "nEV3vSDD5K9ksZU8PXEV1WMlOXrvMO0z2lZtTWqZj4wXhShFeFX8cLzVEZH//D11H39cQkIiMxTw3z+LESPB8g==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "tulPS-onO7EnaazaGhbX7W2OC_06IvTbycFOKOIMEuQ", "y": "IOhJ3WNSTV-asa1_g3nlUUMSrmO9JYYxKAZy2GbGph4", "crv": "P-256" } }, "tf_ph_0005": { "workId": "tf_ph_0005", "contentHash": "sha256:910989ba05fb35939b3deb02b350822ff4a334d43d5619a241059d2286116065", "creatorId": "kabir", "signedAt": "2026-11-18T18:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "zGph1+8XgBg04+ZdEU+60V+zxo5kp+N/QwMg82aa9AotGhdIAB8b+ZiPTMtiwLkQIwE4kf5WEmErQvUWOFFXhg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "t_Z0dHkCPrEGrHZdWUZNeYfQammZnrsmO8cPPn5DPsM", "y": "8p3xXMe_jYvvbzD52Z6GpxTKjKP3wPwel1pyT4EAjfw", "crv": "P-256" } }, "tf_mtr_0006": { "workId": "tf_mtr_0006", "contentHash": "sha256:6ac5de2fe04b4b72c59327bfbdb9b9477dc8d9ebbf15583b7f3c6b79b67515bd", "creatorId": "neha", "signedAt": "2026-11-19T07:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "SwnTNIoaWDuxS0Mo1IuBNH4qeBbe744TQQQoP+NgiBQ8x0+E53vuGdeTVpqBvaFML0AG7k74n6zA5cLD66J9OQ==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "fMItHX93bo_sypHMo1i-lrlIC0oh-4Dz7_jPScnQdpw", "y": "dd3gj7ninZf-6c5BEP7pe5tmklBeAriahDJVIAoS5k0", "crv": "P-256" } } } };
+var seedSeals_default = { "keys": { "riya": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256", "d": "FFaHmA0Wl0Nx8-OekmfVlCqHoJjjI_jM_Bz7kE9mhWY" } }, "arjun": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "LwoD58BJGvG05hEiqZK2kFdvUnEYwDjg5oVNmQJTLKI", "y": "nCXMWJQH3Ib_8L1kw2GKHU7bSZ7j0-3prpg8YM1jhdU", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "LwoD58BJGvG05hEiqZK2kFdvUnEYwDjg5oVNmQJTLKI", "y": "nCXMWJQH3Ib_8L1kw2GKHU7bSZ7j0-3prpg8YM1jhdU", "crv": "P-256", "d": "JkaMeAztUJfN0h9Uam_CeSQCuu2sWTe1Ys6oXiRaUNY" } }, "kabir": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "M4A7uN9UNVSudpd051PSAWY01MWgYFjhgqTGzYpjuF0", "y": "xjvUu1QbcxCdz41e2uMdLs-OdKLwq__uNFoNPPPoQws", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "M4A7uN9UNVSudpd051PSAWY01MWgYFjhgqTGzYpjuF0", "y": "xjvUu1QbcxCdz41e2uMdLs-OdKLwq__uNFoNPPPoQws", "crv": "P-256", "d": "v0qEp5AXS2l4FGeyagOsNCQDb1gcm34Iq6WkRxngZTA" } }, "neha": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nTesPuhaDJlA2h9LN7a8H3gr599JDsN_12lRyMRcdbM", "y": "MgDc7CThKew6O8WTjIYwv3jzn4yMfm6bemI7dQ5qKRQ", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "nTesPuhaDJlA2h9LN7a8H3gr599JDsN_12lRyMRcdbM", "y": "MgDc7CThKew6O8WTjIYwv3jzn4yMfm6bemI7dQ5qKRQ", "crv": "P-256", "d": "GPBs0E6yuJp_BiGKjdEH7bufdcxouKEWzZe9F1u46dI" } }, "aditya": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "puYufZT4AjFFL8y5w_uq0g_78n3JIBsqk6qbwjK6aLo", "y": "qz5Bv_l_-LOfcv8L2AZEqAJk12PqFQo3B7iQgOc5Dm8", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "puYufZT4AjFFL8y5w_uq0g_78n3JIBsqk6qbwjK6aLo", "y": "qz5Bv_l_-LOfcv8L2AZEqAJk12PqFQo3B7iQgOc5Dm8", "crv": "P-256", "d": "4t23J00isaPOnWXs_1zJEJuYmvfwjkCyzYida-uKFrI" } }, "ishita": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "Ko5idcbVmWm74QYsVg6shAA3kE95XUeG8hIvoFdAfio", "y": "JLC_qVHxNnxSZpRNzhqcLB8QVf5lRhiX4kxexwVWmhQ", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "Ko5idcbVmWm74QYsVg6shAA3kE95XUeG8hIvoFdAfio", "y": "JLC_qVHxNnxSZpRNzhqcLB8QVf5lRhiX4kxexwVWmhQ", "crv": "P-256", "d": "4F-u0yT2MUoRoucIXTjYWcNxd1eSM9b_k9QY5lJd_Fg" } }, "rohan": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "2IHoEr6TZ3BPn-zvsCTzRNOLh7zNWxavB2xnjug-4Hc", "y": "rHWGrfqR8PcRFS7olikC1FsInlxXHFTbxKwMivXSitA", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "2IHoEr6TZ3BPn-zvsCTzRNOLh7zNWxavB2xnjug-4Hc", "y": "rHWGrfqR8PcRFS7olikC1FsInlxXHFTbxKwMivXSitA", "crv": "P-256", "d": "Mr1QMgnKfC1j27lx1uMcUrjBFRpQKOhyL6KthXnXJHo" } }, "meghna": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nQaB3FugzASdQQBMEbIaU2nRaSLB0AawR5RlCz1JtTU", "y": "5S-azqDe1XZgyOSAPkjQdhV7I7LA4JqJdqPGR1Xj4pQ", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "nQaB3FugzASdQQBMEbIaU2nRaSLB0AawR5RlCz1JtTU", "y": "5S-azqDe1XZgyOSAPkjQdhV7I7LA4JqJdqPGR1Xj4pQ", "crv": "P-256", "d": "UiEBciHzsAT_JxxLyQPX2fKBhsdnsrRWIG2K4KmvG9g" } }, "tanvi": { "publicJwk": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "KBoS5Wc-pw-sPyg73IF1rw6XUkFRU1bGV7f5T5Pckic", "y": "hr9OOkqu3fRJF5XBOrbBu-3qH3r9bOJLzvS_-QvsXQ0", "crv": "P-256" }, "privateJwk": { "key_ops": ["sign"], "ext": true, "kty": "EC", "x": "KBoS5Wc-pw-sPyg73IF1rw6XUkFRU1bGV7f5T5Pckic", "y": "hr9OOkqu3fRJF5XBOrbBu-3qH3r9bOJLzvS_-QvsXQ0", "crv": "P-256", "d": "Z-txBR6lz33j0xcZTd4xOaV3ZYsIxd3Uc4ZLaDZEQPU" } } }, "seals": { "tf_sfd_0007": { "workId": "tf_sfd_0007", "contentHash": "sha256:e1eb47c0eff9f19610ff713b7278cc97c07babca5e79d79692e8584c6a3f9f4b", "creatorId": "riya", "signedAt": "2026-10-21T08:00:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "/bcrblBYBCfMhaFIWmlrykYUSFqLnwmipVOfilImolYNDFZfOz3tjfiUJ/hD0r6f8Xq2OTC4/tNhWjdwuX4tPQ==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256" } }, "tf_vlt_0001": { "workId": "tf_vlt_0001", "contentHash": "sha256:f3802caa3432ddabdf97e6edcfc88634ca0330bead1d6bdd14970a897b7058a0", "creatorId": "riya", "signedAt": "2026-11-21T10:02:00+05:30", "origin": "ai_assisted", "aiAssistance": ["proofreading"], "version": 1, "signature": "+WljiyMLK31szP6OKRbC7Q0z/U82n6CCa+0A/OW9mVRSnVX2znVcNVa5Vb6At6AwnaWkxs9lFM88fDXBdLKotw==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256" } }, "tf_sfm_0002": { "workId": "tf_sfm_0002", "contentHash": "sha256:c20304203b95e9b3e7a3e8d2427f2c93d9d27211dc7e3d2bfab4e0afce98b22c", "creatorId": "riya", "signedAt": "2026-11-07T08:40:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "0awepYaMCE2jJe7HIQyCspte4ZG/v/keOixXm366FlMB+OCO1JfNhRVY6qgmiv4/0yAo7cfSLMhG25NVdpJ9TA==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256" } }, "tf_lth_0003": { "workId": "tf_lth_0003", "contentHash": "sha256:f2b027a8cfad2157bcfaf50e839073d6ec65e2be1d6709447bc8bb38a48ce572", "creatorId": "riya", "signedAt": "2026-10-30T09:15:00+05:30", "origin": "ai_assisted", "aiAssistance": ["research", "proofreading"], "version": 1, "signature": "3dJiu6IsmTXNplKVghwahf2JYG3Y4eaf3R1bKSUnqktG6/nCTyo/89sq7j6pdSzkXz2x8AlcSVFj7G4oUgmySg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "q94wpqQYUhFP8y8X5pUy5ne8W3xeYzQGfEHW6IJvYtg", "y": "Q-AlzNa0LklhAx1NHAwViIP4dynZ2OfBjd5TMTpm5Vs", "crv": "P-256" } }, "tf_gw_0004": { "workId": "tf_gw_0004", "contentHash": "sha256:bff852938c08a02338b7d3c5cd357436e250accf13f4ece0f03410986c234ee3", "creatorId": "arjun", "signedAt": "2026-11-12T12:00:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "jKckdCQIv423fjOJk+nDj24BFBYsnKw07/1S0Q2X9hSExnpokzzUE6t2tuPdAc3gxD8XJLFIDLyr8ajvEVWUBQ==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "LwoD58BJGvG05hEiqZK2kFdvUnEYwDjg5oVNmQJTLKI", "y": "nCXMWJQH3Ib_8L1kw2GKHU7bSZ7j0-3prpg8YM1jhdU", "crv": "P-256" } }, "tf_ph_0005": { "workId": "tf_ph_0005", "contentHash": "sha256:910989ba05fb35939b3deb02b350822ff4a334d43d5619a241059d2286116065", "creatorId": "kabir", "signedAt": "2026-11-18T18:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "+uqlbF+fyh67P0KAETE++7g4omPQakdNNcgbHTuGQGrSN36JFavr/LjDwuyOoFIl0HCu1xKfa739W92MFutLpg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "M4A7uN9UNVSudpd051PSAWY01MWgYFjhgqTGzYpjuF0", "y": "xjvUu1QbcxCdz41e2uMdLs-OdKLwq__uNFoNPPPoQws", "crv": "P-256" } }, "tf_mtr_0006": { "workId": "tf_mtr_0006", "contentHash": "sha256:6ac5de2fe04b4b72c59327bfbdb9b9477dc8d9ebbf15583b7f3c6b79b67515bd", "creatorId": "neha", "signedAt": "2026-11-19T07:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "+2mjLVjISKBn1XqSQJ5CgrYVrATW9QpziZWGPwYua7bneqkl0m5GI+aafq6DRuiY67WQGRwdyMU8lTa4I8KGPg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nTesPuhaDJlA2h9LN7a8H3gr599JDsN_12lRyMRcdbM", "y": "MgDc7CThKew6O8WTjIYwv3jzn4yMfm6bemI7dQ5qKRQ", "crv": "P-256" } }, "tf_idn_0101": { "workId": "tf_idn_0101", "contentHash": "sha256:ff2435d6c10d76cb6b8455201bbd6e0b094e7f1a6ef75e1b76b937bdd53722ca", "creatorId": "aditya", "signedAt": "2026-11-24T22:40:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "sj40TQfKC5+I4kIlmenNhlZzsKT9o9Mh+XGtG+IfTmQnhBKl/x/22sV6eXHC+10QlyqgeE448lBG1oNaH6qEZg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "puYufZT4AjFFL8y5w_uq0g_78n3JIBsqk6qbwjK6aLo", "y": "qz5Bv_l_-LOfcv8L2AZEqAJk12PqFQo3B7iQgOc5Dm8", "crv": "P-256" } }, "tf_ind_0102": { "workId": "tf_ind_0102", "contentHash": "sha256:fd89c40a2b43044ffc4a7a4e401871d66e75b7215bc152665fb4b9ad254dee07", "creatorId": "aditya", "signedAt": "2026-11-23T09:10:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "kuxLWchS8Tb9B/LhXttocL7ij7obc3IYOplnPGeOpymSzU7Tb8rRFvDzhkkdD1blt/t7IsE1LwDNDRI5NIWX/A==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "puYufZT4AjFFL8y5w_uq0g_78n3JIBsqk6qbwjK6aLo", "y": "qz5Bv_l_-LOfcv8L2AZEqAJk12PqFQo3B7iQgOc5Dm8", "crv": "P-256" } }, "tf_crk_0103": { "workId": "tf_crk_0103", "contentHash": "sha256:e6944c8e1e2df17dca55456696eac7ea03fa0012e1df5efe38e1864b4103877b", "creatorId": "ishita", "signedAt": "2026-11-22T17:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "Tkq/fmk8tNS7ylxD6PalZ7jMAPuAa7PyPSErjcoikTRgFIFqYqbTGVI2kcUiJ3UKbYi/bBkAu+pGTgPfpAY7lA==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "Ko5idcbVmWm74QYsVg6shAA3kE95XUeG8hIvoFdAfio", "y": "JLC_qVHxNnxSZpRNzhqcLB8QVf5lRhiX4kxexwVWmhQ", "crv": "P-256" } }, "tf_dc_0104": { "workId": "tf_dc_0104", "contentHash": "sha256:0ac9e6a8a274048883c952a8a4201b26720461af45b24574b0d6b7bb8017a70b", "creatorId": "neha", "signedAt": "2026-11-21T08:00:00+05:30", "origin": "ai_assisted", "aiAssistance": ["research"], "version": 1, "signature": "08J5XcpHIvj+djyDipEUEgbElHH5MU02wE6wxN29bIVWizl6P9C3LsXZOzgun8auY6/aFBFfZ7zfv+DzQT16xQ==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nTesPuhaDJlA2h9LN7a8H3gr599JDsN_12lRyMRcdbM", "y": "MgDc7CThKew6O8WTjIYwv3jzn4yMfm6bemI7dQ5qKRQ", "crv": "P-256" } }, "tf_aip_0105": { "workId": "tf_aip_0105", "contentHash": "sha256:fe9af5965bbf80f1eb54f68125112b2faf6618800d6579f368af3a4e54828afd", "creatorId": "rohan", "signedAt": "2026-11-20T11:00:00+05:30", "origin": "ai_assisted", "aiAssistance": ["research", "proofreading"], "version": 1, "signature": "ojKdTmKY5MiyXgIesyjdreG1IF8nfLNMP7zy8m8v83srM7azwMIO26Atceju7nnzaNdv+LkV9e7B2adXN+vcJw==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "2IHoEr6TZ3BPn-zvsCTzRNOLh7zNWxavB2xnjug-4Hc", "y": "rHWGrfqR8PcRFS7olikC1FsInlxXHFTbxKwMivXSitA", "crv": "P-256" } }, "tf_sol_0106": { "workId": "tf_sol_0106", "contentHash": "sha256:97db157b3089c6f0d6d9e391cdb1a31fadd1b442206b8a7b7cdbe9b2d93a9a3e", "creatorId": "meghna", "signedAt": "2026-11-19T07:45:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "cMQX26LLg/Vtp6T+34tA1AN8F24tL2vjZGS/P+7VWc27ond9hwKW14b/1BtIyYaSphcdlysWJa8ccPwXVMbTmg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nQaB3FugzASdQQBMEbIaU2nRaSLB0AawR5RlCz1JtTU", "y": "5S-azqDe1XZgyOSAPkjQdhV7I7LA4JqJdqPGR1Xj4pQ", "crv": "P-256" } }, "tf_mon_0107": { "workId": "tf_mon_0107", "contentHash": "sha256:c1226c8c4d6f5092285131f911350b331c23db888748e570368fadd6e52428e3", "creatorId": "meghna", "signedAt": "2026-11-18T06:30:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "oDrKjQGsUg1+7aHhh8RnYNjtb8ZOaLJF+IA07pWWdWND98Ct+naXyj0UgF0QmiQM4QS4MiUQ+NvP44qjbocz6g==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "nQaB3FugzASdQQBMEbIaU2nRaSLB0AawR5RlCz1JtTU", "y": "5S-azqDe1XZgyOSAPkjQdhV7I7LA4JqJdqPGR1Xj4pQ", "crv": "P-256" } }, "tf_blr_0108": { "workId": "tf_blr_0108", "contentHash": "sha256:720c49c35e9d6cc33d35cc174b2d840d3181bd3696a911d7d76852335f5c7006", "creatorId": "rohan", "signedAt": "2026-11-17T08:20:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "T2BnZ58pLxN4oA1/R+XoSxRIzmHaXNuIhKLkOfjnDtHYPVhE/DpjWQUnsfaLbT3wnsidc8F90pvcbl/q5V5tfg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "2IHoEr6TZ3BPn-zvsCTzRNOLh7zNWxavB2xnjug-4Hc", "y": "rHWGrfqR8PcRFS7olikC1FsInlxXHFTbxKwMivXSitA", "crv": "P-256" } }, "tf_flm_0109": { "workId": "tf_flm_0109", "contentHash": "sha256:a2e03cabd5021cc96e3e9097bf367646f034fc7b4841ddabee921c15ee057779", "creatorId": "tanvi", "signedAt": "2026-11-16T19:00:00+05:30", "origin": "human", "aiAssistance": [], "version": 1, "signature": "JLdkJtp1eY0jE9brVjx588eHT4NF0EZbN0swwiSmu/YbWBk1qtC3OSPWFpmYxI2nVRZL0ZrUJ98FvP9tK8mWeg==", "publicKey": { "key_ops": ["verify"], "ext": true, "kty": "EC", "x": "KBoS5Wc-pw-sPyg73IF1rw6XUkFRU1bGV7f5T5Pckic", "y": "hr9OOkqu3fRJF5XBOrbBu-3qH3r9bOJLzvS_-QvsXQ0", "crv": "P-256" } } } };
 
 // src/data/works.ts
 function seedLicence(w) {
@@ -838,9 +1452,9 @@ function valuateFeatures(f, creator, withSuggestions = true) {
   else reasons.push(`Live demand data for ${f.topics.slice(0, 2).map((t) => t.topic.label).join(" and ")}.`);
   if (flags.some((x) => x.severity === "bad")) reasons.push("Quality flags make this harder to predict.");
   const confLabel = conf < 0.45 ? "Low" : conf < 0.7 ? "Medium" : "High";
-  const u = 0.6 - 0.45 * conf;
-  const low = Math.max(0, total * (1 - u));
-  const high = total * (1 + u);
+  const u2 = 0.6 - 0.45 * conf;
+  const low = Math.max(0, total * (1 - u2));
+  const high = total * (1 + u2);
   const lvl = (s) => s >= 70 ? "high" : s >= 45 ? "medium" : "low";
   const signals = {
     originality: {

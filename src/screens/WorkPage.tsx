@@ -3,7 +3,10 @@ import { DEMO_AGENTS, handleMcp, type McpCtx } from '../engine/mcp'
 import { PERMISSION_LABEL, USE_META, inr, summarise, toMachineJson, type UseKey } from '../engine/licence'
 import { shortHash, verifySeal, wordDiff, type DiffPart } from '../engine/seal'
 import { useStore, type Work } from '../store'
-import { Avatar, Badge, Button, Icon, JsonView, Segmented, cx, fmtDate, useRoute } from '../ui/kit'
+import { Avatar, Badge, Button, Icon, JsonView, Photo, Segmented, cx, fmtDate, useRoute } from '../ui/kit'
+import { decorate } from '../data/meta'
+import { Engage } from '../ui/Engage'
+import { AiCompanion, Background, Comments, InShort, KeywordChips, LatestHeadlines, OtherTopics, Related } from './WorkExtras'
 
 const ORDER: UseKey[] = ['read', 'ai_quote', 'ai_train', 'republish']
 
@@ -46,14 +49,16 @@ export default function WorkPage({ id }: { id: string }) {
           <span className="ml-auto text-[13px] text-muted hidden md:inline">{view === 'ai' ? 'Same piece, as structured data an agent receives' : 'What a reader or buyer sees'}</span>
         </div>
       </div>
-      {view === 'person' ? <PersonView w={w} c={c} sealOk={!!seal} /> : <AiView w={w} />}
+      {view === 'person' ? <PersonView w={w} c={c} sealOk={!!seal} focusComments={params.get('c') === '1'} /> : <AiView w={w} />}
     </div>
   )
 }
 
-function PersonView({ w, c, sealOk }: { w: Work; c: ReturnType<typeof useStore>['creators'][string]; sealOk: boolean }) {
+function PersonView({ w, c, sealOk, focusComments }: { w: Work; c: ReturnType<typeof useStore>['creators'][string]; sealOk: boolean; focusComments?: boolean }) {
+  const d = decorate(w)
   const { addEvent, seals, fileReport } = useStore()
   const [unlocked, setUnlocked] = useState(w.licence.uses.read.permission === 'free')
+  useEffect(() => setUnlocked(w.licence.uses.read.permission === 'free'), [w.id])
   const [verify, setVerify] = useState<{ ok: boolean; hashMatches: boolean; signatureValid: boolean } | null>(null)
   const seal = seals[w.id]
   useEffect(() => { if (seal) verifySeal(seal, w.body).then(setVerify) }, [seal, w.body])
@@ -71,7 +76,7 @@ function PersonView({ w, c, sealOk }: { w: Work; c: ReturnType<typeof useStore>[
   return (
     <article className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 md:py-12 grid lg:grid-cols-[minmax(0,1fr)_360px] gap-10">
       <div className="min-w-0 max-w-[720px]">
-        <p className="text-[14px] font-medium text-human-ink">{w.section}{w.kind !== 'article' ? `, ${w.kind}` : ''}</p>
+        <p className="text-[14px] font-medium text-human-ink"><a href={`#/?c=${d.category}`} className="hover:underline">{d.category}</a>{w.kind !== 'article' ? `, ${w.kind}` : ''}</p>
         <h1 className="font-serif text-[34px] md:text-[46px] leading-[1.08] font-medium tracking-[-0.015em] mt-2">{w.title}</h1>
         <p className="font-serif text-[20px] md:text-[23px] leading-snug text-ink-2 mt-4">{w.dek}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mt-6 pb-6 border-b border-line">
@@ -90,6 +95,9 @@ function PersonView({ w, c, sealOk }: { w: Work; c: ReturnType<typeof useStore>[
             {verify && <Badge tone={verify.ok ? 'good' : 'bad'}><Icon.seal className="w-3.5 h-3.5" />{verify.ok ? 'Unchanged since publishing' : 'Changed since publishing'}</Badge>}
           </span>
         </div>
+        <div className="py-2 border-b border-line"><Engage w={d} onComment={() => document.getElementById('cm')?.focus()} /></div>
+        <Photo src={d.meta.image.url} alt={d.meta.image.alt} credit={d.meta.image.credit} ratio="16/9" className="mt-6 rounded-[12px]" />
+        <InShort w={d} />
 
         <div className="prose-article mt-8 whitespace-pre-line relative">
           {shown.split(/\n\s*\n/).map((p, i) => <p key={i}>{p}</p>)}
@@ -108,10 +116,17 @@ function PersonView({ w, c, sealOk }: { w: Work; c: ReturnType<typeof useStore>[
           </div>
         )}
 
+        <div className="mt-8 flex flex-col gap-4">
+          <KeywordChips w={d} />
+          <Engage w={d} onComment={() => document.getElementById('cm')?.focus()} />
+        </div>
+        <Related w={d} />
+        <Comments w={d} focus={focusComments} />
         <ReportBox workId={w.id} onFile={fileReport} creatorFirst={first} />
+        <AiCompanion w={d} />
       </div>
 
-      <aside className="flex flex-col gap-5 lg:sticky lg:top-[150px] self-start">
+      <aside className="flex flex-col gap-5 self-start">
         <section className="panel p-5" aria-labelledby="terms-h">
           <h2 id="terms-h" className="text-[15px] font-semibold">Using this work</h2>
           <ul className="mt-3 divide-y divide-line-2">
@@ -133,7 +148,10 @@ function PersonView({ w, c, sealOk }: { w: Work; c: ReturnType<typeof useStore>[
           <p className="text-[13px] text-ink-2 font-serif leading-relaxed mt-2 pt-3 border-t border-line-2">{summarise(w.licence, first)}</p>
         </section>
 
+        <Background w={d} />
         {sealOk && <SealBox w={w} verify={verify} />}
+        <LatestHeadlines exclude={w.id} />
+        <OtherTopics current={d.category} />
       </aside>
     </article>
   )

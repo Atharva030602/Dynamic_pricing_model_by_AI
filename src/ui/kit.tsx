@@ -124,7 +124,43 @@ export const Icon = {
     <svg viewBox="0 0 16 16" className={p.className} width="14" height="14" aria-hidden><rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M3 11V4a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>
   ),
   live: (p: { className?: string }) => <span className={cx('inline-block w-2 h-2 rounded-full bg-bad live-dot', p.className)} aria-hidden />,
+  heart: (p: { className?: string; on?: boolean }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="18" height="18" aria-hidden><path d="M12 20s-7-4.4-9.3-8.6C1.2 8.6 2.9 5 6.4 5c2 0 3.3 1.1 4 2.4h3.2C14.3 6.1 15.6 5 17.6 5c3.5 0 5.2 3.6 3.7 6.4C19 15.6 12 20 12 20z" fill={p.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+  ),
+  comment: (p: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="18" height="18" aria-hidden><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+  ),
+  bookmark: (p: { className?: string; on?: boolean }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="18" height="18" aria-hidden><path d="M6 3h12v18l-6-4-6 4z" fill={p.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+  ),
+  share: (p: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="18" height="18" aria-hidden><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  ),
+  promote: (p: { className?: string; on?: boolean }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="18" height="18" aria-hidden><path d="M12 3l7 8h-4v9H9v-9H5z" fill={p.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+  ),
+  search: (p: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="16" height="16" aria-hidden><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M16 16l4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+  ),
+  spark: (p: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="16" height="16" aria-hidden><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z" fill="currentColor" /><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" fill="currentColor" /></svg>
+  ),
+  close: (p: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={p.className} width="16" height="16" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+  ),
 }
+
+export function Photo({ src, alt, credit, className, ratio = '16/9', showCredit = true }: { src: string; alt: string; credit?: string; className?: string; ratio?: string; showCredit?: boolean }) {
+  const [ok, setOk] = useState(true)
+  return (
+    <figure className={cx('relative overflow-hidden bg-line-2', className)} style={{ aspectRatio: ratio }}>
+      {ok ? <img src={src} alt={alt} loading="lazy" onError={() => setOk(false)} className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 grid place-items-center text-muted text-[13px]">{alt}</div>}
+      {showCredit && credit && <figcaption className="absolute bottom-1.5 right-2 text-[10.5px] text-white/85 bg-black/30 rounded px-1.5 py-0.5">{credit}</figcaption>}
+    </figure>
+  )
+}
+
+export const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
 
 export function Logo({ className }: { className?: string }) {
   return (

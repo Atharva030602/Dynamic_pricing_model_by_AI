@@ -2,6 +2,7 @@
 // Every creator, buyer, company and outlet is fictional.
 import type { Kind } from '../engine/demand'
 import type { UseKey } from '../engine/licence'
+import { NEW_CREATORS, NEW_WORKS } from './v2'
 
 export interface CreatorProfile {
   id: string
@@ -22,6 +23,7 @@ export const CREATORS: Record<string, CreatorProfile> = {
   arjun: { id: 'arjun', name: 'Dr Arjun Rao', handle: '@arjun.water', beat: 'Hydrologist, independent researcher', location: 'Aurangabad', reputation: 0.85, pastPieces: 9, followers: 900, joined: '2026', verified: true, avatarHue: 200 },
   kabir: { id: 'kabir', name: 'Kabir Sethi', handle: '@kabirtests', beat: 'Phone reviewer, video creator', location: 'Delhi', reputation: 0.62, pastPieces: 31, followers: 5400, joined: '2025', verified: true, avatarHue: 280 },
   neha: { id: 'neha', name: 'Neha Kulkarni', handle: '@nehak', beat: 'Civic reporter', location: 'Pune', reputation: 0.7, pastPieces: 22, followers: 1800, joined: '2026', verified: true, avatarHue: 140 },
+  ...NEW_CREATORS,
 }
 
 export type BuyerKind = 'human' | 'ai'
@@ -139,6 +141,7 @@ A metro spokesperson said the extensions were "due to site handover delays outsi
     topics: ['Pune Metro'], publishedAt: '2026-11-19T07:30:00+05:30',
     disclosure: 'human', aiUses: [], readPrice: 9, quotePrice: 1.1, trainPermission: 'no', trainPrice: 3000, republishPrice: 540,
   },
+  ...(NEW_WORKS as SeedWork[]),
 ]
 
 // ---------------------------------------------------------------------------

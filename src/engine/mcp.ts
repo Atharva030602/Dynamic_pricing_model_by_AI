@@ -1,6 +1,9 @@
 // MCP tool logic shared by the serverless endpoint (/api/mcp) and the in-browser
 // fallback. JSON-RPC 2.0; follows the MCP tools shape (tools/list, tools/call).
 import { summarise, toMachineJson, USE_META, type Licence, type UseKey } from './licence'
+import { decorate } from '../data/meta'
+import type { Work } from '../data/works'
+import { Index } from './similarity'
 
 export const PROTOCOL_VERSION = '2025-06-18'
 
@@ -51,7 +54,7 @@ export const DEMO_AGENTS: Record<string, { id: string; name: string }> = {
 }
 
 export const TOOLS = [
-  { name: 'search_works', description: 'Find works by topic or keyword. Free. Returns ids, titles, creators, dates and access tier.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, kind: { type: 'string', enum: ['article', 'video', 'dataset'] } }, required: ['query'] } },
+  { name: 'search_works', description: 'Search works by meaning, not just keywords. Free. Returns direct matches and indirectly relevant works, each with a relevance score (0-1) and the reason, plus creator, date and access tier.', inputSchema: { type: 'object', properties: { query: { type: 'string' }, kind: { type: 'string', enum: ['article', 'video', 'dataset'] } }, required: ['query'] } },
   { name: 'get_work_metadata', description: 'Creator, date, disclosure (human / AI-assisted), provenance seal and the machine-readable licence. Free.', inputSchema: { type: 'object', properties: { work_id: { type: 'string' } }, required: ['work_id'] } },
   { name: 'get_work_preview', description: 'Short summary, key facts and the free preview words, so you can judge relevance before paying. Free.', inputSchema: { type: 'object', properties: { work_id: { type: 'string' } }, required: ['work_id'] } },
   { name: 'get_full_work', description: 'Full text for a given use. Without a valid licence token returns access_required with offers.', inputSchema: { type: 'object', properties: { work_id: { type: 'string' }, use: { type: 'string', enum: ['ai_quote', 'ai_train', 'republish', 'read'] }, licence_token: { type: 'string' } }, required: ['work_id', 'use'] } },
@@ -106,17 +109,18 @@ export function handleMcp(req: Rpc, ctx: McpCtx, auth?: string) {
 
   switch (name) {
     case 'search_works': {
-      const q = (a.query || '').toLowerCase().split(/\s+/).filter(Boolean)
-      const hits = ctx.works
-        .map((x) => {
-          const hay = `${x.title} ${x.dek} ${x.topics.join(' ')} ${x.body}`.toLowerCase()
-          return { x, score: q.reduce((s, t) => s + (hay.includes(t) ? (x.title.toLowerCase().includes(t) ? 3 : 1) : 0), 0) }
-        })
-        .filter((h) => h.score > 0 && (!a.kind || h.x.kind === a.kind))
-        .sort((p, r) => r.score - p.score || r.x.publishedAt.localeCompare(p.x.publishedAt))
-        .slice(0, 5)
-        .map(({ x }) => ({ work_id: x.id, title: x.title, creator: ctx.creatorName(x.creatorId), published_at: x.publishedAt, kind: x.kind, access: x.licence.uses.ai_quote.permission === 'paid' ? `ai_quote ₹${x.licence.uses.ai_quote.price}/answer` : x.licence.uses.ai_quote.permission }))
-      return tool({ results: hits, cost: 0 })
+      const pool = ctx.works.filter((x) => !a.kind || x.kind === a.kind)
+      const docs = pool.map((x) => { const d = decorate(x as unknown as Work); return { id: x.id, title: x.title, dek: x.dek, body: x.body, keywords: d.meta.keywords, category: d.category, publishedAt: x.publishedAt } })
+      const byId = new Map(pool.map((x) => [x.id, x]))
+      const hits = new Index(docs).search(a.query || '', 6).map((r) => {
+        const x = byId.get(r.id)!
+        return {
+          work_id: x.id, title: x.title, creator: ctx.creatorName(x.creatorId), published_at: x.publishedAt, kind: x.kind, category: r.doc.category,
+          relevance: { score: r.score, match: r.kind, why: r.why, ...(r.alsoBecause ? { also: r.alsoBecause } : {}) },
+          access: x.licence.uses.ai_quote.permission === 'paid' ? `ai_quote ₹${x.licence.uses.ai_quote.price}/answer` : x.licence.uses.ai_quote.permission,
+        }
+      })
+      return tool({ query: a.query, results: hits, note: 'Ranked by meaning (TF-IDF with concept expansion). match=indirect means the work does not mention your terms but is relevant for the reason given.', cost: 0 })
     }
     case 'get_work_metadata':
       return tool({
