@@ -68,38 +68,54 @@ BODY:
 ${body}
 </piece>`
 
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 15000)
+  // Try the configured model, then lighter fallbacks; retry briefly on overload (429/503).
+  const models = [...new Set([model, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'])]
+  const started = Date.now()
+  let r = null
+  let used = model
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 900 },
-      }),
-    })
-    if (!r.ok) {
-      const t = await r.text()
-      console.error('gemini', r.status, t.slice(0, 300))
-      return res.status(200).json(rulesReview(v, r.status === 429 ? 'AI reviewer is busy right now' : 'AI reviewer unavailable'))
+    outer: for (const m of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (Date.now() - started > 22000) break outer
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 12000)
+        try {
+          r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+            method: 'POST',
+            signal: ctrl.signal,
+            headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: SYSTEM }] },
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 900 },
+            }),
+          })
+        } catch (e) {
+          console.error('gemini fetch', m, e?.message)
+          r = null
+        } finally {
+          clearTimeout(timer)
+        }
+        used = m
+        if (r && r.ok) break outer
+        if (r) console.error('gemini', m, r.status, (await r.text()).slice(0, 200))
+        if (r && r.status === 404) break // model name not available: try the next one
+        await new Promise((ok) => setTimeout(ok, 800))
+      }
     }
+    if (!r || !r.ok) return res.status(200).json(rulesReview(v, r && r.status === 429 ? 'AI reviewer is busy right now' : 'AI reviewer is overloaded right now, try again in a minute'))
     const j = await r.json()
     const text = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || ''
     const out = JSON.parse(text)
     const nudges = Object.fromEntries(KEYS.map((k) => [k, clampN(out?.nudges?.[k])]))
     const arr = (x, n) => (Array.isArray(x) ? x.map(String).map((s) => s.slice(0, 300)).slice(0, n) : [])
     return res.status(200).json({
-      source: 'gemini', model,
+      source: 'gemini', model: used,
       summary: String(out.summary || '').slice(0, 600),
       strengths: arr(out.strengths, 2), risks: arr(out.risks, 2), suggestions: arr(out.suggestions, 3), nudges,
     })
   } catch (e) {
     console.error('gemini error', e?.message)
     return res.status(200).json(rulesReview(v, 'AI reviewer timed out'))
-  } finally {
-    clearTimeout(timer)
   }
 }

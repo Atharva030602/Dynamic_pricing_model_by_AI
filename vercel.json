@@ -6,5 +6,5 @@
     { "source": "/api/licence/:id", "destination": "/api/licence?id=:id" },
     { "source": "/robots.txt", "destination": "/api/robots" }
   ],
-  "functions": { "api/*.js": { "maxDuration": 20 } }
+  "functions": { "api/*.js": { "maxDuration": 30 } }
 }
