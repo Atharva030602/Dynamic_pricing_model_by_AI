@@ -108,6 +108,7 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <a href="#/studio/demo" className="hidden lg:grid h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium place-items-center">Live demo</a>
+            <a href={profile?.role === 'creator' ? '#/studio/write' : '#/community?new=1'} title={profile?.role === 'creator' ? 'Write and publish a piece' : 'Share a news link or ask a question'} className="h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium grid place-items-center">+ Add news</a>
             <a href="#/studio" className="hidden sm:grid h-9 px-3.5 rounded-[9px] bg-ink text-white text-[14px] font-medium place-items-center">{profile?.role === 'creator' ? 'My studio' : 'Creator studio'}</a>
             {profile ? (
               <div className="relative" ref={ref}>

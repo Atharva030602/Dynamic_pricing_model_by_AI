@@ -333,6 +333,7 @@ export interface CommunityPost {
   title: string
   body: string
   workId?: string
+  link?: string
   votes: number
   ts: string
   replies: { author: string; text: string; ts: string }[]

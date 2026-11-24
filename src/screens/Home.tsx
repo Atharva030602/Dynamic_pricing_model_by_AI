@@ -6,7 +6,7 @@ import { rankForUser } from '../engine/similarity'
 import { useStore } from '../store'
 import { Engage } from '../ui/Engage'
 import { MarketPanel, MarketStrip } from '../ui/Market'
-import { Avatar, Icon, Photo, ago, cx, fmtDate, go, useRoute } from '../ui/kit'
+import { Avatar, Icon, Photo, ago, compact, cx, fmtDate, go, useRoute } from '../ui/kit'
 
 type Tab = 'foryou' | 'top' | 'saved' | Category
 
@@ -82,7 +82,11 @@ export default function Home() {
                   {hero.length >= 3 && <Carousel items={hero} />}
                   <h2 className="sr-only">Stories</h2>
                   <ul className="mt-2">
-                    {rest.map(({ w, why }) => <FeedCard key={w.id} w={w} why={why} c={creators[w.creatorId]} />)}
+                    {rest.map(({ w, why }, i) => (
+                      <FeedRow key={w.id} i={i}>
+                        <FeedCard w={w} why={why} c={creators[w.creatorId]} />
+                      </FeedRow>
+                    ))}
                   </ul>
                 </>
               )}
@@ -261,6 +265,41 @@ function Carousel({ items }: { items: { w: Decorated; why: string }[] }) {
         ))}
       </div>
     </section>
+  )
+}
+
+/** After the 2nd and 6th cards, slide in a row of stories from a topic the reader follows. */
+function FeedRow({ i, children }: { i: number; children: React.ReactNode }) {
+  const { profile, feed } = useStore()
+  const { params } = useRoute()
+  const tab = params.get('c')
+  if (tab && tab !== 'foryou' && tab !== 'top') return <>{children}</>
+  const cats = [...new Set((profile?.keywords || ['Football', 'Monsoon']).map((k) => CATEGORY_LIST.find((c) => c.keywords.includes(k))?.id).filter(Boolean))] as Category[]
+  const pick = i === 1 ? cats[0] : i === 5 ? (cats[1] || (cats[0] === 'Climate' ? 'Sports' : 'Climate')) : null
+  if (!pick) return <>{children}</>
+  const items = feed.filter((w) => w.category === pick)
+  if (items.length < 2) return <>{children}</>
+  return (
+    <>
+      {children}
+      <li className="py-5 border-b border-line">
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-[16px] font-semibold">More in {pick}</h3>
+          <a href={`#/?c=${pick}`} className="text-[13.5px] underline underline-offset-4 text-ink-2">See all</a>
+        </div>
+        <div className="mt-3 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+          {items.map((w) => (
+            <a key={w.id} href={`#/work/${w.id}`} className="group snap-start shrink-0 w-[240px] rounded-[12px] border border-line overflow-hidden hover:border-faint">
+              <Photo src={w.meta.image.url} alt="" ratio="16/10" showCredit={false} />
+              <span className="block p-3">
+                <span className="block font-serif text-[16px] leading-snug line-clamp-3 group-hover:underline">{w.title}</span>
+                <span className="block text-[12px] text-muted mt-1.5">{fmtDate(w.publishedAt)}, {compact(w.meta.likes)} likes</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </li>
+    </>
   )
 }
 

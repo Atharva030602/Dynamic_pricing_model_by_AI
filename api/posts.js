@@ -22,6 +22,7 @@ export default async function handler(req, res) {
     title,
     body: clean(b.body, 2000),
     workId: /^tf_[a-z0-9_]{3,40}$/.test(b.workId || '') ? b.workId : undefined,
+    link: /^https?:\/\/[^\s<>"]{3,300}$/i.test(b.link || '') ? b.link : undefined,
     votes: 1,
     ts: new Date().toISOString(),
     replies: [],

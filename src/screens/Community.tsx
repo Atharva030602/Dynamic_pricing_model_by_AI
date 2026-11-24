@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { Avatar, Button, Icon, Photo, ago, cx, go, useRoute } from '../ui/kit'
 
 const TAGS: CommunityPost['tag'][] = ['Question', 'Discussion', 'Shared news', 'Tip']
+const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return 'link' } }
 
 export default function Community() {
   const { posts, feed, votes, replies, profile } = useStore()
@@ -61,6 +62,7 @@ export default function Community() {
                       </span>
                       <span className="block text-[18px] font-semibold leading-snug mt-1 group-hover:underline">{p.title}</span>
                       {p.body && <span className="block text-[14.5px] text-ink-2 mt-1 line-clamp-2">{p.body}</span>}
+                      {p.link && <span className="block text-[13px] text-machine-ink mt-1 truncate">↗ {hostOf(p.link)}</span>}
                       {w && (
                         <span className="mt-2 flex items-center gap-3 rounded-[10px] border border-line p-2 max-w-[520px]">
                           <Photo src={w.meta.image.url} alt="" ratio="1/1" className="w-12 shrink-0 rounded-[6px]" showCredit={false} />
@@ -118,10 +120,12 @@ function Composer({ onDone }: { onDone: (id: string) => void }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [workId, setWorkId] = useState('')
+  const [link, setLink] = useState('')
+  const linkOk = !link || /^https?:\/\/\S{3,}$/i.test(link.trim())
   return (
     <form className="mt-5 rounded-[14px] border border-line p-4 arrive" onSubmit={(e) => {
-      e.preventDefault(); if (title.trim().length < 5) return
-      const id = addPost({ tag, title: title.trim(), body: body.trim(), workId: workId || undefined })
+      e.preventDefault(); if (title.trim().length < 5 || !linkOk) return
+      const id = addPost({ tag, title: title.trim(), body: body.trim(), workId: workId || undefined, link: link.trim() || undefined })
       onDone(id)
     }}>
       <div className="flex flex-wrap gap-2">
@@ -136,14 +140,19 @@ function Composer({ onDone }: { onDone: (id: string) => void }) {
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Add details (optional)" className="w-full rounded-[10px] border border-line p-3 text-[15px] outline-none focus:border-ink" />
       </label>
       <label className="block mt-2">
-        <span className="text-[13.5px] font-medium">Link a story (optional)</span>
+        <span className="text-[13.5px] font-medium">News link from elsewhere (optional)</span>
+        <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" inputMode="url" className={cx('mt-1 h-10 w-full rounded-[10px] border px-3 text-[14px] outline-none focus:border-ink', linkOk ? 'border-line' : 'border-bad')} />
+        {!linkOk && <span className="block text-[12.5px] text-bad mt-1">Use a full link starting with https://</span>}
+      </label>
+      <label className="block mt-2">
+        <span className="text-[13.5px] font-medium">Link a Twofold story (optional)</span>
         <select value={workId} onChange={(e) => setWorkId(e.target.value)} className="mt-1 h-10 w-full rounded-[10px] border border-line px-2 text-[14px] bg-surface">
           <option value="">None</option>
           {feed.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
         </select>
       </label>
       <div className="flex items-center gap-3 mt-3">
-        <Button variant="primary" disabled={title.trim().length < 5}>Post</Button>
+        <Button variant="primary" disabled={title.trim().length < 5 || !linkOk}>Post</Button>
         <span className="text-[12.5px] text-muted">Posts appear for everyone on the live site.</span>
       </div>
     </form>
@@ -165,6 +174,7 @@ function Thread({ post }: { post: CommunityPost }) {
           <p className="text-[13px]"><span className="font-semibold text-human-ink">{post.tag}</span> <span className="text-muted">{post.author}, {ago(post.ts)}</span></p>
           <h1 className="font-serif text-[28px] md:text-[34px] leading-[1.1] font-medium mt-1">{post.title}</h1>
           {post.body && <p className="text-[16px] text-ink mt-3 leading-relaxed">{post.body}</p>}
+          {post.link && <a href={post.link} target="_blank" rel="noreferrer noopener nofollow" className="inline-block mt-3 text-[14px] text-machine-ink underline underline-offset-2 break-all">Open the shared link on {hostOf(post.link)} ↗</a>}
           {w && (
             <a href={`#/work/${w.id}`} className="group mt-4 flex gap-4 rounded-[12px] border border-line p-3 hover:border-faint">
               <Photo src={w.meta.image.url} alt="" ratio="4/3" className="w-28 shrink-0 rounded-[8px]" showCredit={false} />
