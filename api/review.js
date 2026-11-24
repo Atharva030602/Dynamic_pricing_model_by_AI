@@ -69,7 +69,7 @@ ${body}
 </piece>`
 
   // Try the configured model, then lighter fallbacks; retry briefly on overload (429/503).
-  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite'])]
+  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash'])]
   const started = Date.now()
   let r = null
   let used = model

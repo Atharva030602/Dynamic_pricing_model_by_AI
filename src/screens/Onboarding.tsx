@@ -183,7 +183,7 @@ export default function Onboarding() {
           <form className="mt-8 space-y-5" onSubmit={(e) => { e.preventDefault(); if (name.trim()) finish() }}>
             <label className="block">
               <span className="text-[15px] font-semibold">Your name</span>
-              <input autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Atharva Phadtare" className="mt-2 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" />
+              <input autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Asha Kulkarni" className="mt-2 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" />
               {name.trim() && <span className="block text-[13px] text-muted mt-1.5">Your handle will be {handle}</span>}
             </label>
             <label className="block">

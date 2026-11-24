@@ -12,7 +12,7 @@ import Community from './screens/Community'
 import Hub, { StudioTour } from './screens/Hub'
 
 export default function App() {
-  const { path } = useRoute()
+  const { path, params } = useRoute()
   const { profile, skippedOnboarding } = useStore()
   if (path === '/welcome') return <Onboarding />
   if (path.startsWith('/studio')) {
@@ -26,7 +26,7 @@ export default function App() {
   if (path.startsWith('/work/')) return <ReaderShell><WorkPage id={path.split('/')[2]} /></ReaderShell>
   if (path === '/community') return <ReaderShell active="community"><Community /></ReaderShell>
   // first visit: start with onboarding, unless the visitor chose to just browse
-  if (!profile && !skippedOnboarding) return <Onboarding />
+  if (!profile && !skippedOnboarding && [...params.keys()].length === 0) return <Onboarding />
   return <ReaderShell active="home"><Home /></ReaderShell>
 }
 

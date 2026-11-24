@@ -19,6 +19,16 @@ const SCHEMA = {
 }
 
 const clip = (s, n) => String(s || '').slice(0, n)
+const STOP = new Set('a an the and or of in on at to for is are was were be this that it its what how why who does do did will would could can with from by as about'.split(' '))
+// When the model is unavailable, answer extractively: the article sentences closest to the question.
+function extractive(question, body) {
+  const q = question.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w))
+  const sents = String(body || '').split(/(?<=[.!?])\s+/).filter((x) => x.length > 20)
+  const scored = sents.map((x, i) => ({ x, i, s: q.reduce((a, w) => a + (x.toLowerCase().includes(w.replace(/s$/, '')) ? 1 : 0), 0) })).filter((r) => r.s > 0)
+  if (!scored.length) return 'The article doesn’t say. The AI companion is busy right now, so this answer comes from the text only.'
+  const top = scored.sort((a, b) => b.s - a.s).slice(0, 2).sort((a, b) => a.i - b.i).map((r) => r.x).join(' ')
+  return `From the article: ${top}`
+}
 
 export default async function handler(req, res) {
   cors(res)
@@ -28,7 +38,7 @@ export default async function handler(req, res) {
   const fallback = { source: 'notes', why: clip(b.fallback?.why, 400), who: clip(b.fallback?.who, 400), fact: clip(b.fallback?.fact, 400), answer: '' }
   const key = process.env.GEMINI_API_KEY
   const question = clip(b.question, 300).trim()
-  if (!key) return res.status(200).json({ ...fallback, answer: question ? 'The AI companion is not configured on this server, so only the writer’s notes are shown.' : '' })
+  if (!key) return res.status(200).json({ ...fallback, answer: question ? extractive(question, b.body) : '' })
 
   const prompt = `${question ? `Reader question: ${question}\n\n` : ''}<article>
 TITLE: ${clip(b.title, 300)}
@@ -36,10 +46,12 @@ STANDFIRST: ${clip(b.dek, 600)}
 BODY:
 ${clip(b.body, 8000)}
 </article>`
-  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite'])]
+  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash'])]
   const started = Date.now()
-  for (const m of models) {
+  const tries = [...models, models[0]]
+  for (const [n, m] of tries.entries()) {
     if (Date.now() - started > 18000) break
+    if (n === tries.length - 1) await new Promise((r) => setTimeout(r, 1200))
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 8000)
     try {
@@ -62,5 +74,5 @@ ${clip(b.body, 8000)}
       clearTimeout(timer)
     }
   }
-  return res.status(200).json({ ...fallback, answer: question ? 'The AI companion is busy right now. Try again in a minute.' : '' })
+  return res.status(200).json({ ...fallback, answer: question ? extractive(question, b.body) : '' })
 }
