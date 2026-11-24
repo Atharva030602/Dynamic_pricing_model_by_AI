@@ -308,3 +308,22 @@ Env vars: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-flash-latest`), opti
 - 2 reports: one dismissed, one under review (with escrow).
 
 Generated with a seeded random generator so numbers are stable between reloads.
+
+
+## 13. V2: personalisation, semantic search, community
+
+**Onboarding and profile.** First visit to `#/` opens onboarding. The profile (role, name, handle, city, followed keywords, creator defaults) lives in the client store (`localStorage`, key `twofold:v4`); no password in the prototype. An onboarded creator gets the id `g_<handle>`; their published works carry an `author` block so other devices can show their name.
+
+**Relevance engine** (`src/engine/similarity.ts`), used by the feed, related stories and the MCP `search_works` tool:
+
+1. *Index.* Each story becomes a TF-IDF vector over title (×3), keywords (×3), standfirst (×2) and body. Weight = (1 + ln tf) × ln(1 + N/df).
+2. *Query expansion.* Query terms keep weight 1; synonyms/concepts (e.g. football → qualifiers, squad, goal) are added at 0.55.
+3. *Direct score.* cosine × 1.6 + 0.12 per keyword hit.
+4. *Indirect relevance.* A relation graph (`RELATIONS`) links subjects: India ↔ Indonesia (same qualifying group), EVs → lithium (battery costs), farming/loans → monsoon/groundwater, AI → data centres. If the query names a `from` subject and a story is about a `to` subject, it gets +0.32 and the relation's reason. If the story never names the subject asked about, the match is labelled *indirect*.
+5. *Output.* `{score 0–1, match: direct|indirect, why, also}`; results below 0.12 are dropped.
+
+**Feed ranking** (`rankForUser`): 1.2 × direct keyword matches + 0.5 if related through the graph + 0.3 × learned taste (likes/saves per keyword) + 0.8 × freshness (linear over 10 days) + 0.4 × log popularity. Promoted stories get a popularity boost.
+
+**New endpoints.** `POST /api/insight` (reading companion: Gemini with structured output, the article treated as untrusted data; retry once on overload; fallback to the writer's notes and an extractive answer). `GET/POST /api/posts` (community; validated, length-capped, stored in the same memory/Redis list pattern as works). `/api/feed` now also returns posts so other devices update within 4 seconds.
+
+**Market panel.** Prices for the fictional companies are simulated client-side (seeded random walk, updated every 2.6 s, paused for reduced-motion users) and labelled as simulated.

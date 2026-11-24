@@ -10,11 +10,15 @@ Built for the Zzazz campus placement assignment, "AI Creator Studio for the AI E
 
 ---
 
-## The five screens
+## The screens
 
 | Screen | Route | What it shows |
 |---|---|---|
-| Reader home | `#/` | A simple front page. New pieces appear here live when the creator publishes |
+| Onboarding | `#/welcome` (and the first visit to `#/`) | Reader or creator; pick topics from category tabs while a live preview of your feed fills in; create a local account (name, city, no password). Creators also set what they publish and their default AI-training stance |
+| Reader home | `#/` | Three columns: simulated market prices (left); category bar, sliding carousel, "For you" feed with the reason each story is there, topic shelves (centre); latest headlines, trending topics, community (right). Semantic search box. New pieces arrive live |
+| Article | `#/work/<id>` | Photo, "In short" summary, keywords, like / comment / share / save / promote, related stories with match % and reason, earlier coverage timeline, background links, AI reading companion |
+| Community | `#/community` | Questions, discussions and shared news (with links), upvotes, threaded replies; writers' replies are marked |
+| Creator hub | `#/studio/hub` | Earnings at a glance, your pieces, what your readers follow; a five-step studio tour on first visit |
 | **1. Write & value** | `#/studio/write` | Editor + live value panel: 30-day earnings range, confidence, four signals, gaming flags, what would raise the value (in ₹), optional AI second opinion |
 | **2. Licence builder** | `#/studio/licence` | Four uses (read, AI quote, AI training, republish), each Free / Paid / Ask me / Not allowed; presets; plain-English terms beside the machine-readable JSON; publish and seal |
 | **3. Public work page** | `#/work/<id>` | Preview, price, terms, author, date, human/AI disclosure, seal check, "check a copy", report button. Toggle **A person / An AI system**; the AI view runs real MCP calls |
@@ -32,6 +36,14 @@ Fastest path: open **`#/studio/demo`** and press **Run the demo** (open `#/` in 
 4. **Public page.** Check the green seal. In *Check a copy*, click **Try an altered copy**, then **Check against the seal**: the changed figure is highlighted.
 5. Switch to **An AI system** and click **Run the calls**. FinPilot (a trading agent) searches, previews free, gets `402 access_required` with offers, buys a quote licence and retrieves the text with attribution rules.
 6. **Earnings.** FinPilot's purchase is at the top of *Latest activity*. Accept or decline Halcyon Labs' training request, see derivatives paying back, and see the report under review with only that piece's earnings partly held.
+
+### V2 additions in one paragraph each
+
+- **Personalised feed.** `rankForUser()` scores each story on followed keywords (direct), followed keywords reached through the relation graph (indirect), taste learned from likes and saves, freshness and popularity. Every card says why it is shown ("Because you follow Football").
+- **Search by meaning, with indirect relevance.** `src/engine/similarity.ts`: TF-IDF cosine (title ×3, keywords ×3, standfirst ×2, body ×1), query expansion through a small synonym/concept table, and a relation graph that finds stories that never mention your words but matter to them, with the reason. Example: *football in India* returns the under-23 camp (direct, 80%) and Indonesia's home defeat (indirect, 74%: "Indonesia is in India's qualifying group, so their results change India's chances"). The MCP `search_works` tool uses the same engine and returns `relevance: {score, match, why}`.
+- **Engagement as a value signal.** Likes, comments, shares, saves and promotes are shown on every story and fold into an engagement score that feeds observed demand after publishing.
+- **AI reading companion.** `POST /api/insight` asks Gemini for "why it matters", "who it affects" and a fun fact, or answers a reader's question, treating the article as untrusted data. If Gemini is overloaded it falls back to the writer's notes and an extractive answer from the article's own sentences.
+- **Community.** `GET/POST /api/posts`, stored with the same memory/Redis layer as published works, so posts appear on other devices.
 
 ---
 
@@ -193,10 +205,10 @@ Deploy: import the repo into Vercel (framework: Vite). Optional env: `GEMINI_API
 ### Project layout
 
 ```
-src/engine/   valuation.ts  licence.ts  seal.ts  mcp.ts  demand.ts   ← pure logic, shared by browser and API
-src/data/     samples.ts  seed.ts  works.ts  seedSeals.ts               ← made-up content and the simulated month
-src/screens/  Home  Write  Licence  WorkPage  Earnings
-api/          mcp.js  review.js  feed.js  works.js  licence.js  robots.js  (+ _lib/core.mjs built from src/)
+src/engine/   valuation.ts  licence.ts  seal.ts  mcp.ts  demand.ts  similarity.ts   ← pure logic, shared by browser and API
+src/data/     samples.ts  seed.ts  works.ts  seedSeals.ts  v2.ts  meta.ts          ← made-up content, photos, topics, community
+src/screens/  Onboarding  Home  WorkPage  WorkExtras  Community  Hub  Write  Licence  Earnings  Demo
+api/          mcp.js  review.js  insight.js  posts.js  feed.js  works.js  licence.js  robots.js  (+ _lib/core.mjs built from src/)
 docs/         SYSTEM_DESIGN.md  PRODUCT_NOTE.md
 scripts/      calibrate.ts  seal-seeds.ts  build-api.mjs  shot.py  e2e.py  capture_figma.py
 ```
