@@ -318,7 +318,7 @@ x-mcp-endpoint: ${location.origin}/api/mcp`}</pre>
         </div>
         <ol className="mt-4 space-y-3">
           {steps.map((s, i) => (
-            <li key={i} className="panel p-4 bg-surface seal-in" style={{ animationDuration: '.25s' }}>
+            <li key={i} className="panel p-4 bg-surface rise-in">
               <div className="flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-machine-wash text-machine-ink grid place-items-center text-[12px] font-semibold">{i + 1}</span>
                 <h3 className="text-[14px] font-semibold flex-1">{s.title}</h3>

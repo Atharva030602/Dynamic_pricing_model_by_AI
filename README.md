@@ -18,9 +18,13 @@ Built for the Zzazz campus placement assignment, "AI Creator Studio for the AI E
 | **1. Write & value** | `#/studio/write` | Editor + live value panel: 30-day earnings range, confidence, four signals, gaming flags, what would raise the value (in ₹), optional AI second opinion |
 | **2. Licence builder** | `#/studio/licence` | Four uses (read, AI quote, AI training, republish), each Free / Paid / Ask me / Not allowed; presets; plain-English terms beside the machine-readable JSON; publish and seal |
 | **3. Public work page** | `#/work/<id>` | Preview, price, terms, author, date, human/AI disclosure, seal check, "check a copy", report button. Toggle **A person / An AI system**; the AI view runs real MCP calls |
+| **Live demo** | `#/studio/demo` | One click: a new story is published and sealed, appears on the reader home page, readers buy it, then three AI agents find it via MCP, pay ₹2 each to quote it and answer their users with credit; earnings tick up live |
 | **4. Earnings** | `#/studio/earnings` | People vs AI, by use, per day, per buyer, live activity, derivatives tree with royalties, fake-content reports with escrow, price now vs launch price |
 
 ### Two-minute demo script
+
+Fastest path: open **`#/studio/demo`** and press **Run the demo** (open `#/` in a second tab to watch the story arrive). The steps below walk the same flow by hand.
+
 
 1. **Write & value.** The draft is Riya's new exclusive. Note the range, confidence and the four signals. Click **Padded SEO piece**: the estimate collapses to about ₹14–24 and explains why (keyword stuffing, repetition, boilerplate, 100% overlap with commodity text). Click **Your draft** again, toggle **Source document**, and watch the value rise.
 2. **Licence.** Pick **Keep me out of AI training**. The plain-English paragraph and the JSON change together. Note the timer: it takes well under a minute.

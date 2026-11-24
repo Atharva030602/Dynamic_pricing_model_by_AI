@@ -213,7 +213,7 @@ export default function Demo() {
           {turns.map((t, i) => {
             const a = DEMO_AGENTS[t.agent.key]
             return (
-              <article key={i} className="panel p-4 seal-in" style={{ animationDuration: '.3s' }}>
+              <article key={i} className="panel p-4 rise-in">
                 <header className="flex items-center gap-2 mb-3">
                   <span className="w-7 h-7 rounded-full bg-machine-wash text-machine grid place-items-center"><Icon.machine /></span>
                   <span className="font-semibold text-[14.5px]">{a.name}</span>
