@@ -4,7 +4,7 @@
 
 Built for the Zzazz campus placement assignment, "AI Creator Studio for the AI Era". Every person, company, outlet, AI system and piece of content in it is made up.
 
-- **Live prototype:** `https://<your-vercel-url>` (works on desktop and phone)
+- **Live prototype:** https://dynamicpricingmodelbyai.vercel.app (works on desktop and phone)
 - **System design:** [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md)
 - **Product note** (the brief's questions, edge cases, creator FAQ): [`docs/PRODUCT_NOTE.md`](docs/PRODUCT_NOTE.md)
 
@@ -163,7 +163,7 @@ Set `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`, default `gemini-flash-lates
 `POST /api/mcp`, JSON-RPC 2.0, Streamable-HTTP compatible (JSON responses). Tools: `search_works`, `get_work_metadata`, `get_work_preview`, `get_full_work`, `purchase_licence`, `report_work`. Demo credentials: `Authorization: Bearer demo-finpilot` (also `demo-lumen`, `demo-kestrel`, `demo-halcyon`).
 
 ```bash
-H=https://<your-vercel-url>
+H=https://dynamicpricingmodelbyai.vercel.app
 curl -s $H/api/mcp -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_full_work","arguments":{"work_id":"tf_vlt_0001","use":"ai_quote"}}}'
 # → access_required (402) with offers
