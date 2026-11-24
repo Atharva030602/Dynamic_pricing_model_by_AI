@@ -75,7 +75,7 @@ interface Store {
   licence: Licence
   setLicence: (l: Licence) => void
   applyPreset: (id: string) => void
-  publish: () => Promise<Work>
+  publish: (override?: Draft) => Promise<Work>
   addEvent: (e: Omit<UsageEvent, 'id'> & { id?: string }) => UsageEvent
   respondRequest: (id: string, accept: boolean) => void
   claimDerivative: (id: string) => void
@@ -184,8 +184,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return ev
   }
 
-  const publish = async () => {
-    const d = p.draft
+  const publish = async (override?: Draft) => {
+    const d = override || p.draft
+    const val = override ? valuate({ title: d.title, body: d.body, kind: d.kind, attachments: d.attachments }, me) : valuation
+    const lic = override ? buildLicence('paid_both', val) : licence
     const id = `tf_${d.title.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 3) || 'new'}_${Date.now().toString(36).slice(-5)}`
     const keys = p.keys[ME] || SEED_KEYS[ME] || (await generateKeys())
     const publishedAt = new Date().toISOString()
@@ -194,9 +196,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const work: Work = {
       id, creatorId: ME, kind: d.kind, section: d.kind === 'dataset' ? 'Data' : d.kind === 'video' ? 'Reviews' : 'Markets',
       title: d.title, dek: d.dek, body: d.body,
-      topics: valuation.features.topics.slice(0, 3).map((t) => t.topic.label), publishedAt,
-      disclosure: d.disclosure, aiUses: d.aiUses, licence,
-      estimate: { low: Math.round(valuation.low), high: Math.round(valuation.high), confidence: valuation.confidence.label },
+      topics: val.features.topics.slice(0, 3).map((t) => t.topic.label), publishedAt,
+      disclosure: d.disclosure, aiUses: d.aiUses, licence: lic,
+      estimate: { low: Math.round(val.low), high: Math.round(val.high), confidence: val.confidence.label },
       seal, live: true,
     }
     commit((x) => ({ ...x, keys: { ...x.keys, [ME]: keys }, seals: { ...x.seals, [id]: seal }, published: [...x.published.filter((w) => w.id !== id), work] }))

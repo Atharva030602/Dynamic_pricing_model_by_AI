@@ -6,6 +6,7 @@ import Write from './screens/Write'
 import LicenceBuilder from './screens/Licence'
 import WorkPage from './screens/WorkPage'
 import Earnings from './screens/Earnings'
+import Demo from './screens/Demo'
 
 export default function App() {
   const { path } = useRoute()
@@ -13,7 +14,7 @@ export default function App() {
     const tab = path.split('/')[2] || 'write'
     return (
       <StudioShell tab={tab}>
-        {tab === 'licence' ? <LicenceBuilder /> : tab === 'earnings' ? <Earnings /> : <Write />}
+        {tab === 'licence' ? <LicenceBuilder /> : tab === 'earnings' ? <Earnings /> : tab === 'demo' ? <Demo /> : <Write />}
       </StudioShell>
     )
   }
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'write', label: 'Write & value', step: 1 },
   { id: 'licence', label: 'Licence', step: 2 },
   { id: 'earnings', label: 'Earnings' },
+  { id: 'demo', label: 'Live demo' },
 ]
 
 function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
@@ -60,7 +62,7 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-[1360px] px-4 md:px-6 py-6">{children}</main>
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-line grid grid-cols-3" aria-label="Studio">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-line grid grid-cols-4" aria-label="Studio">
         {TABS.map((t) => (
           <a key={t.id} href={`#/studio/${t.id}`} aria-current={tab === t.id ? 'page' : undefined} className={cx('h-14 grid place-items-center text-[13px] font-medium', tab === t.id ? 'text-ink' : 'text-muted')}>
             <span className="flex flex-col items-center gap-0.5">
@@ -88,6 +90,7 @@ function ReaderShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden sm:inline text-[13.5px] text-muted">Pass ₹199/month</span>
+            <a href="#/studio/demo" className="hidden sm:grid h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium place-items-center">Live demo</a>
             <a href="#/studio/write" className="h-9 px-3.5 rounded-[9px] bg-ink text-white text-[14px] font-medium grid place-items-center">Creator studio</a>
           </div>
         </div>
