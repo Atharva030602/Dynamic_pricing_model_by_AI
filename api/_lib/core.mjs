@@ -943,6 +943,7 @@ export {
   DEMO_AGENTS,
   PROTOCOL_VERSION,
   SEED,
+  SEED_SEALS,
   TOOLS,
   handleMcp,
   summarise,

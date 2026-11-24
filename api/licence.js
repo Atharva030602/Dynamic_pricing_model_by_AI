@@ -1,5 +1,6 @@
 // Machine-readable licence for one work (/api/licence/<id>) or an index of all works.
-import { SEED, CREATORS, toMachineJson } from './_lib/core.mjs'
+import { SEED as RAW_SEED, SEED_SEALS, CREATORS, toMachineJson } from './_lib/core.mjs'
+const SEED = RAW_SEED.map((w) => ({ ...w, seal: SEED_SEALS[w.id] }))
 import { listWorks } from './_lib/store.mjs'
 import { cors, hostOf } from './_lib/http.mjs'
 

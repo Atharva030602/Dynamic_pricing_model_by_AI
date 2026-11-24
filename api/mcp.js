@@ -1,5 +1,6 @@
 // MCP server (Streamable HTTP, JSON responses). POST JSON-RPC; GET returns a description.
-import { handleMcp, TOOLS, PROTOCOL_VERSION, SEED, CREATORS } from './_lib/core.mjs'
+import { handleMcp, TOOLS, PROTOCOL_VERSION, SEED as RAW_SEED, SEED_SEALS, CREATORS } from './_lib/core.mjs'
+const SEED = RAW_SEED.map((w) => ({ ...w, seal: SEED_SEALS[w.id] }))
 import { addEvent, listWorks, storeKind } from './_lib/store.mjs'
 import { cors, hostOf, readJson } from './_lib/http.mjs'
 
