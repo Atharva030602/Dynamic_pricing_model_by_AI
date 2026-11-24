@@ -88,7 +88,7 @@ The dashboard shows each report's claim, weight, escrow, timeline and the creato
 
 | Edge case | Handling |
 |---|---|
-| An AI crawler ignores MCP and scrapes the page | Public HTML carries only the preview; full text returns HTTP 402 with offers; `robots.txt` and `<link rel="license">` point to the terms. Partners like Cloudflare-style edge networks can enforce. We are honest that terms can't stop misuse after delivery |
+| An AI crawler ignores MCP and scrapes the page | Public HTML carries only the preview; full text returns HTTP 402 with offers; `robots.txt` and `<link rel="license">` point to the terms. Edge networks (CDNs) that support paid crawling can enforce it. We are honest that terms can't stop misuse after delivery |
 | A training licence is "sold" but the model was already trained on a scraped copy | Fingerprint monitoring of model outputs and licence audits; the case goes to the creator as a claim, with evidence. We don't promise detection we can't do |
 | The creator edits the piece after publishing | New sealed version; v1's fingerprint is kept; buyers of v1 see that a newer version exists |
 | AI-generated content passed off as human | Disclosure is self-declared but signed; *"AI-generated but not disclosed"* is a report category; upheld reports hit reputation hard |

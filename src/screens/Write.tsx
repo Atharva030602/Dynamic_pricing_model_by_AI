@@ -288,6 +288,7 @@ function ValuePanel({ v, review, staleReview, loading, onAsk }: { v: Valuation; 
 function AudienceLine({ people, ai, humanShare }: { people: number; ai: number; humanShare: number }) {
   const uses = people + ai
   const aiUseShare = uses ? ai / uses : 0
+  if (people === 0) return <p className="mb-3 text-[13px] text-ink-2">Too thin to charge readers for: we suggest making it free to read. Any income would come from AI answers.</p>
   return (
     <div className="mb-3 text-[13px] text-ink-2 space-y-1">
       <p className="flex items-center gap-1.5"><Icon.machine className="text-machine shrink-0" /><span><span className="font-medium text-ink num">{Math.round(aiUseShare * 100)}%</span> of its use will be AI systems, but they’ll pay <span className="font-medium text-ink num">{Math.round((1 - humanShare) * 100)}%</span> of the money.</span></p>

@@ -20,7 +20,7 @@ export interface CreatorProfile {
 export const CREATORS: Record<string, CreatorProfile> = {
   riya: { id: 'riya', name: 'Riya Deshpande', handle: '@riya.d', beat: 'Independent markets reporter', location: 'Pune', reputation: 0.78, pastPieces: 46, followers: 3200, joined: '2025', verified: true, avatarHue: 18 },
   arjun: { id: 'arjun', name: 'Dr Arjun Rao', handle: '@arjun.water', beat: 'Hydrologist, independent researcher', location: 'Aurangabad', reputation: 0.85, pastPieces: 9, followers: 900, joined: '2026', verified: true, avatarHue: 200 },
-  kabir: { id: 'kabir', name: 'Kabir Sethi', handle: '@kabirtests', beat: 'Phone reviewer, YouTube', location: 'Delhi', reputation: 0.62, pastPieces: 31, followers: 5400, joined: '2025', verified: true, avatarHue: 280 },
+  kabir: { id: 'kabir', name: 'Kabir Sethi', handle: '@kabirtests', beat: 'Phone reviewer, video creator', location: 'Delhi', reputation: 0.62, pastPieces: 31, followers: 5400, joined: '2025', verified: true, avatarHue: 280 },
   neha: { id: 'neha', name: 'Neha Kulkarni', handle: '@nehak', beat: 'Civic reporter', location: 'Pune', reputation: 0.7, pastPieces: 22, followers: 1800, joined: '2026', verified: true, avatarHue: 140 },
 }
 
