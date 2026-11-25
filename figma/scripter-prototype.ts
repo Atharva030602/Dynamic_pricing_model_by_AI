@@ -1,21 +1,21 @@
 /**
- * Twofold: wire the imported screens into a clickable Figma prototype.
+ * Twofold: clean the page and wire every imported screen into a clickable prototype.  (v2)
  *
  * How to use
- * 1. In one Figma page, import twofold-all.html with an HTML-to-Figma plugin (it holds every
- *    screen plus the design system). The three separate files work too: import all of them.
- *    Each screen arrives with a caption such as "D10 Home, For you with welcome note (desktop)".
- * 2. Open the Scripter plugin on that page, paste this whole file, press Run.
- * 3. Press Present (▶) and pick a flow: reader first visit, returning reader, reader home, creator, or phone.
+ * 1. Open the page that holds the screens imported from twofold-all.html (or the three separate files).
+ * 2. Open the Scripter plugin, paste this whole file, press Run. Run it again any time: it is safe to repeat.
+ * 3. Press Present (▶) and pick a flow from the left panel.
  *
  * What it does
- * - Finds each screen by its caption, lifts it to the top level of the page and names it "D10 …".
- * - Turns long pages into device-sized frames that scroll vertically (1440×900 or 390×844).
- * - Wires about 300 interactions: navigate, back, overlays (AI companion, account menu, tour, publish
- *   dialog), overlay swaps for the 5-step tour, after-delay transitions for loading states,
- *   scroll-to anchors, Esc to close overlays, and links between the reader, creator and phone flows.
- * - Adds five flow starting points.
- * Safe to run twice: it clears the reactions it set before and sets them again.
+ * - Finds every screen by its caption ("D10 … (desktop)"), even when the importer wrapped the caption
+ *   or the screen in extra frames, or named layers after their text.
+ * - Lifts each screen to the top level as a named frame ("D10 Home, For you …"), sized to the device
+ *   (1440×900 or 390×844) with vertical scrolling; overlays keep their own size.
+ * - Lays the page out cleanly: design system first, then Reader desktop, Creator desktop and Phone rows,
+ *   each screen with its caption. Removes the importer's leftover wrapper only when every screen was lifted.
+ * - Wires about 300 interactions on the real buttons and links, plus overlays, tour swaps, timed loading
+ *   screens, scroll-to anchors, Esc to close overlays, Backspace to go back, and five flow starting points.
+ * - Prints what it found and anything it could not wire.
  */
 
 const VIEWPORT = { desktop: { w: 1440, h: 900 }, phone: { w: 390, h: 844 } }
@@ -214,56 +214,87 @@ const OVERLAYS: Record<string, OverlayPositionType> = {
 }
 
 // ===================================================================== engine
-const LABEL = /^([DCM]\d{2})\s+(.+?)\s+\((desktop|phone)\)\s*$/
+const LABEL = /^([DCM]\d{2})\s+(.+?)\s+\((desktop|phone)\)$/
+const norm = (s: string) => s.replace(/[‘’]/g, '’').replace(/[“”]/g, '"').replace(/ /g, ' ').replace(/\s+/g, ' ').trim()
+const lower = (s: string) => norm(s).toLowerCase()
+const page = figma.currentPage
 const screens = new Map<string, FrameNode>()
 const device = new Map<string, 'desktop' | 'phone'>()
+const captions = new Map<string, TextNode>()
 const missing: string[] = []
+const notes: string[] = []
 let wired = 0
 
-const norm = (s: string) => s.replace(/[‘’]/g, '’').replace(/\s+/g, ' ').trim()
+function absXY(n: SceneNode) { return { x: n.absoluteTransform[0][2], y: n.absoluteTransform[1][2] } }
 
 function toFrame(node: SceneNode): FrameNode {
   if (node.type === 'FRAME') return node
+  const { x, y } = absXY(node)
   const f = figma.createFrame()
-  f.resize(node.width, node.height)
-  f.x = node.absoluteTransform[0][2]; f.y = node.absoluteTransform[1][2]
+  f.resize(Math.max(1, node.width), Math.max(1, node.height))
   f.fills = []
-  figma.currentPage.appendChild(f)
+  page.appendChild(f); f.x = x; f.y = y
   f.appendChild(node); node.x = 0; node.y = 0
   return f
 }
 
-// 1. find screens by caption and lift them to the top level
-for (const t of figma.currentPage.findAll((n) => n.type === 'TEXT') as TextNode[]) {
+function lift(node: SceneNode): SceneNode {
+  if (node.parent === page) return node
+  const { x, y } = absXY(node)
+  page.appendChild(node); node.x = x; node.y = y
+  return node
+}
+
+const isScreenish = (c: SceneNode, _dev: string) => 'children' in c && c.width >= 150 && c.height >= 80
+
+/** The screen that belongs to a caption: a sibling of the caption or of one of its wrappers. */
+function screenFor(t: TextNode, dev: string): SceneNode | null {
+  let cur: BaseNode = t
+  for (let i = 0; i < 4 && cur.parent && cur.parent.type !== 'PAGE' && cur.parent.type !== 'DOCUMENT'; i++) {
+    const parent = cur.parent as BaseNode & ChildrenMixin
+    const sibs = (parent.children as SceneNode[]).filter((c) => c !== cur && isScreenish(c, dev) && !(c as FrameNode).findOne((n) => n.type === 'TEXT' && LABEL.test(norm((n as TextNode).characters))))
+    if (sibs.length) return sibs.sort((a, b) => b.width * b.height - a.width * a.height)[0]
+    cur = parent
+  }
+  return null
+}
+
+// 0. remember the design-system frame (kept, placed first)
+let designSystem: SceneNode | null = null
+const dsTitle = page.findAllWithCriteria({ types: ['TEXT'] }).find((t) => norm(t.characters) === 'Twofold design system')
+if (dsTitle) {
+  let n: BaseNode | null = dsTitle
+  while (n && n.parent && n.parent.type !== 'PAGE' && !((n as SceneNode).width >= 1400 && (n as SceneNode).height > 2000)) n = n.parent
+  if (n && n.type !== 'PAGE') designSystem = n as SceneNode
+}
+
+// 1. find screens by caption
+for (const t of page.findAllWithCriteria({ types: ['TEXT'] })) {
   const m = norm(t.characters).match(LABEL)
   if (!m) continue
   const [, code, name, dev] = m
-  const parent = t.parent
-  if (!parent || !('children' in parent)) continue
-  const target = (parent.children as SceneNode[]).find((c) => c !== t && 'children' in c && c.width > 200)
-  if (!target) { missing.push(`${code} (no frame next to its caption)`); continue }
-  const ax = target.absoluteTransform[0][2], ay = target.absoluteTransform[1][2]
-  if (target.parent !== figma.currentPage) { figma.currentPage.appendChild(target); target.x = ax; target.y = ay }
-  const f = toFrame(target)
+  if (screens.has(code)) continue
+  // already lifted by an earlier run: caption and screen both sit on the page
+  const target = t.parent === page ? (page.children.find((n) => n !== t && n.name.startsWith(code + ' ') && 'children' in n) || null) : screenFor(t, dev)
+  if (!target) { missing.push(`${code} (caption found, screen next to it not found)`); continue }
+  const f = toFrame(lift(target))
   f.name = `${code} ${name}`
-  screens.set(code, f)
-  device.set(code, dev as 'desktop' | 'phone')
-  // keep the caption beside the screen
-  figma.currentPage.appendChild(t); t.x = ax; t.y = ay - t.height - 24
+  screens.set(code, f); device.set(code, dev as 'desktop' | 'phone')
+  captions.set(code, lift(t) as TextNode)
 }
 
-// 1b. importers that keep data-name / aria-label as layer names: match frames named "D10 …"
-for (const n of figma.currentPage.findAll((x) => x.type === 'FRAME' && /^([DCM]\d{2}) \S/.test(x.name)) as FrameNode[]) {
-  const code = n.name.slice(0, 3)
-  if (screens.has(code)) continue
-  const ax = n.absoluteTransform[0][2], ay = n.absoluteTransform[1][2]
-  if (n.parent !== figma.currentPage) { figma.currentPage.appendChild(n); n.x = ax; n.y = ay }
-  screens.set(code, n)
-  device.set(code, n.width <= 500 ? 'phone' : 'desktop')
+// 1b. importers that name layers after data-name: frames called "D10 …"
+for (const n of page.findAllWithCriteria({ types: ['FRAME', 'GROUP', 'INSTANCE'] })) {
+  const m = n.name.match(/^([DCM]\d{2}) \S/)
+  if (!m || screens.has(m[1]) || n.width < 250) continue
+  const f = toFrame(lift(n))
+  screens.set(m[1], f); device.set(m[1], f.width <= 500 ? 'phone' : 'desktop')
 }
+notes.push(`Screens found: ${screens.size} (reader ${[...screens.keys()].filter((c) => c[0] === 'D').length}, creator ${[...screens.keys()].filter((c) => c[0] === 'C').length}, phone ${[...screens.keys()].filter((c) => c[0] === 'M').length})`)
 
 // 2. device-sized, scrolling frames (overlays keep their own size)
 for (const [code, f] of screens) {
+  f.locked = false
   if (OVERLAYS[code]) {
     try { (f as any).overlayPositionType = OVERLAYS[code] } catch {}
     try { (f as any).overlayBackground = { type: 'SOLID_COLOR', color: { r: 0.1, g: 0.11, b: 0.21, a: code === 'D23' || code === 'D16' || code === 'M08' ? 0 : 0.35 } } } catch {}
@@ -271,8 +302,7 @@ for (const [code, f] of screens) {
     continue
   }
   const vp = VIEWPORT[device.get(code)!]
-  if (f.layoutMode === 'VERTICAL') f.primaryAxisSizingMode = 'FIXED'
-  if (f.layoutMode === 'HORIZONTAL') f.counterAxisSizingMode = 'FIXED'
+  try { if (f.layoutMode !== 'NONE') { f.primaryAxisSizingMode = 'FIXED'; f.counterAxisSizingMode = 'FIXED' } } catch {}
   if (f.height > vp.h + 4) {
     f.resizeWithoutConstraints(f.width, vp.h)
     f.clipsContent = true
@@ -280,7 +310,40 @@ for (const [code, f] of screens) {
   }
 }
 
-// 3. reactions
+// 3. clean layout: design system, then one band per app
+await figma.loadFontAsync({ family: 'Inter', style: 'Bold' })
+await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
+for (const n of page.children) if (n.name.startsWith('§ ')) n.remove()   // section titles from an earlier run
+const GAP_X = 160, GAP_Y = 260, CAP = 70
+let y = 0
+if (designSystem) { lift(designSystem); designSystem.x = 0; designSystem.y = 0; designSystem.name = 'DS Twofold design system'; y = designSystem.height + 400 }
+const BANDS: [string, string, number][] = [['D', 'Reader, desktop (1440 × 900)', 6], ['C', 'Creator Studio, desktop (1440 × 900)', 6], ['M', 'Phone, reader (390 × 844)', 10]]
+for (const [prefix, title, perRow] of BANDS) {
+  const codes = [...screens.keys()].filter((c) => c[0] === prefix).sort()
+  if (!codes.length) continue
+  const head = figma.createText(); head.fontName = { family: 'Inter', style: 'Bold' }; head.characters = title; head.fontSize = 96
+  head.name = '§ ' + title; page.appendChild(head); head.x = 0; head.y = y; y += head.height + 120
+  for (let i = 0; i < codes.length; i += perRow) {
+    const row = codes.slice(i, i + perRow).map((c) => screens.get(c)!)
+    let x = 0
+    for (const f of row) {
+      f.x = x; f.y = y + CAP
+      const cap = captions.get(f.name.slice(0, 3))
+      if (cap) { cap.x = x; cap.y = y; cap.name = 'caption ' + f.name.slice(0, 3) }
+      x += f.width + GAP_X
+    }
+    y += CAP + Math.max(...row.map((f) => f.height)) + GAP_Y
+  }
+  y += 300
+}
+// remove the importer's leftovers only when nothing is left behind in them
+const keep = new Set<SceneNode>([...screens.values(), ...captions.values(), ...(designSystem ? [designSystem] : [])])
+const leftovers = page.children.filter((n) => !keep.has(n) && !n.name.startsWith('§ '))
+const stranded = leftovers.some((n) => 'findOne' in n && (n as FrameNode).findOne((c) => c.type === 'TEXT' && LABEL.test(norm((c as TextNode).characters))))
+if (!stranded && screens.size >= 70) { for (const n of leftovers) n.remove(); notes.push(`Removed ${leftovers.length} leftover wrapper layer(s).`) }
+else if (leftovers.length) notes.push(`Kept ${leftovers.length} other top-level layer(s) because some screens were not lifted; check the list below.`)
+
+// 4. reactions
 function transition(a: Anim = 'DISSOLVE'): Transition | null {
   const easing = { type: 'EASE_OUT' } as Easing
   switch (a) {
@@ -294,18 +357,32 @@ function transition(a: Anim = 'DISSOLVE'): Transition | null {
   }
 }
 
-function findText(root: FrameNode, q: string | RegExp, nth = 0): TextNode | null {
-  const hits = (root.findAll((n) => n.type === 'TEXT') as TextNode[]).filter((t) => {
-    const c = norm(t.characters)
-    return typeof q === 'string' ? c === norm(q) || c === `✓ ${norm(q)}` : q.test(c)
-  })
-  hits.sort((a, b) => a.absoluteTransform[1][2] - b.absoluteTransform[1][2] || a.absoluteTransform[0][2] - b.absoluteTransform[0][2])
+const textCache = new Map<FrameNode, TextNode[]>()
+const textsOf = (root: FrameNode) => textCache.get(root) || (textCache.set(root, root.findAllWithCriteria({ types: ['TEXT'] }) as TextNode[]), textCache.get(root)!)
+const byPos = (a: SceneNode, b: SceneNode) => absXY(a).y - absXY(b).y || absXY(a).x - absXY(b).x
+
+/** Find the hotspot for a label: exact text, then ✓-prefixed, then case-insensitive, then a container whose texts join to the label, then a layer named after it. */
+function findTarget(root: FrameNode, q: string | RegExp, nth = 0): SceneNode | null {
+  const texts = textsOf(root)
+  const test = (c: string) => typeof q === 'string' ? (c === norm(q) || c === `✓ ${norm(q)}`) : q.test(c)
+  let hits: SceneNode[] = texts.filter((t) => test(norm(t.characters)))
+  if (!hits.length && typeof q === 'string') hits = texts.filter((t) => lower(t.characters) === lower(q) || lower(t.characters) === lower(`✓ ${q}`))
+  if (!hits.length && typeof q === 'string') {
+    const want = lower(q)
+    hits = (root.findAllWithCriteria({ types: ['FRAME', 'GROUP', 'INSTANCE'] }) as SceneNode[]).filter((f) => {
+      if (f.width * f.height > root.width * 900 * 0.5) return false
+      const ts = (f as FrameNode).findAllWithCriteria({ types: ['TEXT'] }) as TextNode[]
+      return ts.length > 1 && ts.length < 12 && lower(ts.map((t) => t.characters).join(' ')) === want
+    })
+  }
+  if (!hits.length && typeof q === 'string') hits = (root.findAll((n) => lower(n.name) === lower(q)) as SceneNode[])
+  hits.sort(byPos)
   return hits[nth] || null
 }
 
-/** The clickable area: the nearest ancestor that looks like a control (has a fill or a stroke), else the text. */
-function hotspot(t: TextNode, screen: FrameNode): SceneNode {
-  let n: BaseNode | null = t.parent
+/** The clickable area: the nearest ancestor that looks like a control (has a fill or a stroke), else the node itself. */
+function hotspot(t: SceneNode, screen: FrameNode): SceneNode {
+  let n: BaseNode | null = t.type === 'TEXT' ? t.parent : t
   const maxArea = screen.width * Math.min(screen.height, 900) * 0.45
   for (let i = 0; n && n !== screen && i < 5; i++, n = n.parent) {
     const s = n as SceneNode & GeometryMixin
@@ -321,11 +398,11 @@ function action(kind: Kind, to: string, anim?: Anim, from?: FrameNode): Action |
   if (kind === 'BACK') return { type: 'BACK' }
   if (kind === 'CLOSE') return { type: 'CLOSE' }
   if (kind === 'SCROLL') {
-    const target = from && findText(from, to)
-    return target ? { type: 'NODE', destinationId: hotspot(target, from!).id, navigation: 'SCROLL_TO', transition: transition('SMART'), preserveScrollPosition: false } : null
+    const target = from && findTarget(from, to)
+    return target ? { type: 'NODE', destinationId: hotspot(target, from!).id, navigation: 'SCROLL_TO', transition: transition('SMART'), preserveScrollPosition: false } as Action : null
   }
   const dest = screens.get(to)
-  if (!dest) { missing.push(`→ ${to}`); return null }
+  if (!dest) { missing.push(`→ ${to} (screen not found)`); return null }
   const navigation: Navigation = kind === 'OVERLAY' ? 'OVERLAY' : kind === 'SWAP' ? 'SWAP' : 'NAVIGATE'
   return { type: 'NODE', destinationId: dest.id, navigation, transition: transition(kind === 'OVERLAY' && !anim ? 'MOVE_IN_BOTTOM' : anim), preserveScrollPosition: false } as Action
 }
@@ -336,29 +413,29 @@ async function setReactions(node: SceneNode, reactions: Reaction[]) {
     if (typeof n.setReactionsAsync === 'function') await n.setReactionsAsync(reactions)
     else n.reactions = reactions
   } catch (e) {
-    // older Figma builds: one action per reaction, under `action`
-    const legacy = reactions.map((r: any) => ({ trigger: r.trigger, action: r.actions[0] }))
+    const legacy = reactions.map((r: any) => ({ trigger: r.trigger, action: r.actions[0] }))   // older builds
     if (typeof n.setReactionsAsync === 'function') await n.setReactionsAsync(legacy)
     else n.reactions = legacy
   }
 }
 
-// clear what an earlier run set
+// clear what an earlier run (or the importer) set
 for (const f of screens.values()) {
-  for (const n of [f, ...f.findAll(() => true)] as (SceneNode & ReactionMixin)[]) {
-    if ('reactions' in n && n.reactions.length) await setReactions(n, [])
+  for (const n of [f, ...f.findAll((x) => 'reactions' in x && (x as any).reactions.length > 0)] as SceneNode[]) {
+    if ('reactions' in n && (n as any).reactions.length) await setReactions(n, [])
   }
 }
 
 const pending = new Map<SceneNode, Reaction[]>()
 const add = (n: SceneNode, r: Reaction) => pending.set(n, [...(pending.get(n) || []), r])
+const headerOnly = new Set(READER_HEADER.map((l) => `${l[0]}|${String(l[1])}`))
 
 for (const [from, q, to, kind = 'NAV', anim, nth = 0] of [...READER, ...READER_HEADER, ...CREATOR, ...PHONE]) {
   const screen = screens.get(from)
-  if (!screen) { missing.push(from); continue }
+  if (!screen) { missing.push(`${from} (screen not found)`); continue }
   if (kind !== 'SCROLL' && kind !== 'CLOSE' && kind !== 'BACK' && to === from && anim !== 'INSTANT') continue
-  const t = findText(screen, q, nth)
-  if (!t) { if (!READER_HEADER.some((l) => l[0] === from && l[1] === q)) missing.push(`${from}: "${q}"`); continue }
+  const t = findTarget(screen, q, nth)
+  if (!t) { if (!headerOnly.has(`${from}|${String(q)}`)) missing.push(`${from}: "${q}"`); continue }
   const a = action(kind, to, anim, screen)
   if (!a) continue
   add(hotspot(t, screen), { trigger: { type: 'ON_CLICK' }, actions: [a] } as Reaction)
@@ -381,9 +458,11 @@ for (const [node, reactions] of pending) {
   try { await setReactions(node, reactions) } catch (e) { missing.push(`${node.name}: ${String(e).slice(0, 80)}`) }
 }
 
-// 4. flows
-figma.currentPage.flowStartingPoints = FLOWS.filter(([c]) => screens.has(c)).map(([c, name]) => ({ nodeId: screens.get(c)!.id, name }))
+// 5. flows
+page.flowStartingPoints = FLOWS.filter(([c]) => screens.has(c)).map(([c, name]) => ({ nodeId: screens.get(c)!.id, name }))
 
-print(`Screens found: ${screens.size}. Interactions wired: ${wired}. Flows: ${figma.currentPage.flowStartingPoints.length}.`)
-if (missing.length) print('Not wired (text not found or screen missing):\n' + [...new Set(missing)].join('\n'))
-figma.viewport.scrollAndZoomIntoView([...screens.values()])
+print(notes.join('\n'))
+print(`Interactions wired: ${wired}. Flows: ${page.flowStartingPoints.length}.`)
+if (missing.length) print('Not wired (copy this list back to Claude):\n' + [...new Set(missing)].join('\n'))
+else print('Everything wired. Press Present (▶) and pick a flow.')
+figma.viewport.scrollAndZoomIntoView(page.children)
