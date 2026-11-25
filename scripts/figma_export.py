@@ -161,7 +161,7 @@ READER_DESKTOP = [
   S('D06', 'Reader questions, connecting an account (loading)', lambda pg: reader_flow(pg, 'connecting')),
   S('D07', 'Reader questions, account connected', lambda pg: reader_flow(pg, 'connected')),
   S('D08', 'Reader questions, reading rhythm and report', lambda pg: reader_flow(pg, 'rhythm')),
-  S('D09', 'Reader questions, account (name missing)', lambda pg: reader_flow(pg, 'account')),
+  S('D09', 'Reader questions, account (name, email, password)', lambda pg: reader_flow(pg, 'account')),
   S('D10', 'Home, For you with welcome note', lambda pg: r(pg, rs(), '/?welcome=1')),
   S('D11', 'Home, Sports category', lambda pg: r(pg, rs(), '/?c=Sports')),
   S('D12', 'Search, direct and indirect results', lambda pg: r(pg, rs(), '/?q=football%20in%20India')),
@@ -176,6 +176,11 @@ READER_DESKTOP = [
   S('D21', 'Reading report, Premium', lambda pg: r(pg, rs(), '/report')),
   S('D22', 'Reading report, not Premium', lambda pg: r(pg, rs(profile={**READER, 'premium': False}), '/report')),
   S('D23', 'Account menu (overlay)', None, 'header [class*="absolute"]'),
+  S('D24', 'Sign in', lambda pg: r(pg, None, '/signin')),
+  S('D25', 'Sign in, wrong password', None),
+  S('D26', 'Saved stories', lambda pg: r(pg, rs(bookmarked=['tf_idn_0101', 'tf_dc_0104', 'tf_mon_0107']), '/?c=saved')),
+  S('D27', 'Home, welcome back after sign-in', lambda pg: r(pg, rs(bookmarked=['tf_idn_0101', 'tf_dc_0104']), '/?welcome=back')),
+  S('D28', 'Accounts database (What we stored)', lambda pg: r(pg, rs(), '/database')),
 ]
 
 async def d16(pg):
@@ -187,15 +192,20 @@ async def d23(pg):
 READER_DESKTOP[15] = S('D16', 'Article, AI companion (overlay)', d16, '[aria-label="AI reading companion"]')
 READER_DESKTOP[18] = S('D19', 'Community, new post with link error', d19)
 READER_DESKTOP[22] = S('D23', 'Account menu (overlay)', d23, '[aria-expanded="true"] + div')
+async def d25(pg):
+    await r(pg, None, '/signin'); await pg.get_by_label('Email').fill('meera@example.com'); await pg.get_by_label('Password').fill('wrongpass1')
+    await pg.get_by_role('button', name='Sign in', exact=True).click(); await pg.wait_for_timeout(800)
+READER_DESKTOP[24] = S('D25', 'Sign in, wrong password', d25)
 
 def cs(**kw):
     s = {'profile': READER, 'creator': CREATOR, 'creatorSession': 'me', 'tourDone': True, 'draft': BLANK}
     s.update(kw); return s
 
-async def c02(pg):
-    await r(pg, {'profile': READER, 'creator': CREATOR}, '/studio'); await pg.get_by_role('button', name='Continue as Asha Kulkarni').click(); await pg.get_by_label('6-digit code sent to asha@example.com').fill('111111')
-async def c02b(pg):
-    await r(pg, {'profile': READER}, '/studio'); await pg.get_by_label('Creator email').fill('new@example.com'); await pg.get_by_role('button', name='Send sign-in code').click()
+async def gate(pg, email, pw):
+    await r(pg, {'profile': READER}, '/studio'); await pg.get_by_label('Creator email').fill(email); await pg.get_by_label('Password').fill(pw)
+    await pg.get_by_role('button', name='Sign in', exact=True).click(); await pg.wait_for_timeout(800)
+async def c02(pg): await gate(pg, 'asha@example.com', 'wrongpass1')
+async def c02b(pg): await gate(pg, 'new@example.com', 'anything1')
 async def tour(pg, n, deeper=False):
     await r(pg, cs(tourDone=False), '/studio/hub?tour=1')
     for _ in range(n): await pg.get_by_role('button', name='Next').click(); await pg.wait_for_timeout(250)
@@ -215,7 +225,7 @@ async def published(pg):
 
 CREATOR_DESKTOP = [
   S('C01', 'Creator Studio sign-in (signed in as reader)', lambda pg: r(pg, {'profile': READER}, '/studio')),
-  S('C02', 'Sign-in code, wrong code', c02),
+  S('C02', 'Sign-in, wrong password', c02),
   S('C03', 'Sign-in, no creator account for email', c02b),
   S('C04', 'Join 1, you (invalid email)', lambda pg: join_flow(pg, 'bademail')),
   S('C05', 'Join 2, your work', lambda pg: join_flow(pg, 'work')),
@@ -263,6 +273,8 @@ MOBILE = [
   S('M12', 'Saved, empty', lambda pg: r(pg, rs(), '/?c=saved')),
   S('M13', 'Creator Studio sign-in', lambda pg: r(pg, {'profile': READER}, '/studio')),
   S('M14', 'Creator hub', lambda pg: r(pg, cs(creatorSession='demo'), '/studio/hub')),
+  S('M15', 'Sign in', lambda pg: r(pg, None, '/signin')),
+  S('M16', 'Saved stories', lambda pg: r(pg, rs(bookmarked=['tf_idn_0101', 'tf_dc_0104']), '/?c=saved')),
 ]
 
 async def capture(b, width, height, label, screens):
@@ -305,7 +317,16 @@ def write(path, title, frames, cols):
     add_design_system(path)
     print(path, len(doc) // 1024, 'KB', len(frames), 'frames')
 
+def seed_accounts():
+    import json, urllib.request
+    for body in ({'role': 'reader', 'name': 'Meera Joshi', 'email': 'meera@example.com', 'password': 'reading123', 'city': 'Pune', 'interests': ['football', 'markets']},
+                 {'role': 'creator', 'name': 'Asha Kulkarni', 'email': 'asha@example.com', 'password': 'twofold-demo', 'city': 'Pune', 'beat': 'Football', 'formats': ['article', 'video']}):
+        req = urllib.request.Request('http://localhost:8787/api/accounts', data=json.dumps(body).encode(), headers={'content-type': 'application/json'})
+        try: urllib.request.urlopen(req).read()
+        except Exception: pass  # 409: already there
+
 async def main():
+    seed_accounts()
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
         rd = await capture(b, 1440, 900, 'desktop', READER_DESKTOP)

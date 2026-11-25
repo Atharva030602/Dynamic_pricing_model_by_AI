@@ -1,6 +1,6 @@
 # Twofold in Figma: screens and a clickable prototype
 
-Three HTML files hold 67 screens captured from the working app, including empty, loading and error states.
+Three HTML files hold 74 screens captured from the working app, including empty, loading and error states.
 `scripter-prototype.ts` turns them into a clickable prototype.
 
 ## Steps
@@ -46,7 +46,7 @@ Each HTML file opens with a 1440-wide frame, **DS Twofold design system**, above
 | D06 | Reader questions, connecting an account (loading) |
 | D07 | Reader questions, account connected |
 | D08 | Reader questions, reading rhythm and report |
-| D09 | Reader questions, account (name missing) |
+| D09 | Reader questions, account (name, email, password) |
 | D10 | Home, For you with welcome note |
 | D11 | Home, Sports category |
 | D12 | Search, direct and indirect results |
@@ -61,16 +61,18 @@ Each HTML file opens with a 1440-wide frame, **DS Twofold design system**, above
 | D21 | Reading report, Premium |
 | D22 | Reading report, not Premium |
 | D23 | Account menu (overlay) |
-| D16 | Article, AI companion (overlay) |
-| D19 | Community, new post with link error |
-| D23 | Account menu (overlay) |
+| D24 | Sign in |
+| D25 | Sign in, wrong password |
+| D26 | Saved stories |
+| D27 | Home, welcome back after sign-in |
+| D28 | Accounts database (What we stored) |
 
 ### Creator, desktop (1440)
 
 | Screen | State |
 |---|---|
 | C01 | Creator Studio sign-in (signed in as reader) |
-| C02 | Sign-in code, wrong code |
+| C02 | Sign-in, wrong password |
 | C03 | Sign-in, no creator account for email |
 | C04 | Join 1, you (invalid email) |
 | C05 | Join 2, your work |
@@ -118,6 +120,8 @@ Each HTML file opens with a 1440-wide frame, **DS Twofold design system**, above
 | M12 | Saved, empty |
 | M13 | Creator Studio sign-in |
 | M14 | Creator hub |
+| M15 | Sign in |
+| M16 | Saved stories |
 
 ## Re-capturing after design changes
 

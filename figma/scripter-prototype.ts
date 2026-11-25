@@ -31,7 +31,8 @@ const READER: Link[] = [
   ['D01', 'I write, film or publish data', 'C04', 'NAV', 'PUSH_LEFT'],
   ['D01', 'Start, about 1 minute', 'D02', 'NAV', 'PUSH_LEFT'],
   ['D01', 'Set up Creator Studio, about 3 minutes', 'C04', 'NAV', 'PUSH_LEFT'],
-  ['D01', 'Sign in to Creator Studio', 'C01'],
+  ['D01', 'sign in to Creator Studio', 'C01'],
+  ['D01', 'Sign in as a reader', 'D24'],
   ['D01', 'Skip, just browse', 'D10', 'NAV', 'DISSOLVE'],
   ['D02', 'That’s me', 'D03', 'NAV', 'SMART'],
   ['D03', 'Next', 'D04', 'NAV', 'SMART'],
@@ -40,6 +41,14 @@ const READER: Link[] = [
   ['D07', 'Next', 'D08', 'NAV', 'SMART'],
   ['D08', 'Next', 'D09', 'NAV', 'SMART'],
   ['D09', 'Enter your name to finish', 'D10', 'NAV', 'DISSOLVE'],
+  ['D09', 'Sign in', 'D24'],
+  ['D24', 'Sign in', 'D27', 'NAV', 'DISSOLVE'],
+  ['D24', 'Create a reader account', 'D02', 'NAV', 'PUSH_LEFT'],
+  ['D24', 'Creator? Sign in to the studio', 'C01'],
+  ['D25', 'Sign in', 'D27', 'NAV', 'DISSOLVE'],
+  ['D25', 'Create a reader account', 'D02', 'NAV', 'PUSH_LEFT'],
+  ['D27', /^\d saved stor/, 'D26', 'NAV', 'DISSOLVE'],
+  ['D26', 'Indonesia’s home defeat blows Group D of the qualifiers wide open', 'D15', 'NAV', 'PUSH_LEFT'],
   ['D10', 'Sports', 'D11', 'NAV', 'DISSOLVE'],
   ['D10', 'football in India', 'D12', 'NAV', 'DISSOLVE'],
   ['D10', 'Search', 'D12', 'NAV', 'DISSOLVE'],
@@ -74,9 +83,10 @@ const READER: Link[] = [
   ['D21', 'Email me a sample now', 'D21', 'NAV', 'INSTANT'],
   ['D22', 'Start a free month', 'D21', 'NAV', 'DISSOLVE'],
   ['D23', 'My reading report', 'D21'],
-  ['D23', 'Saved stories', 'D14'],
+  ['D23', 'Saved stories', 'D26'],
+  ['D23', 'What we stored', 'D28'],
   ['D23', 'Edit my topics', 'D02'],
-  ['D23', 'Sign out', 'D01'],
+  ['D23', 'Sign out', 'D24'],
   ['D16', 'Fun fact', 'D16', 'SWAP', 'INSTANT'],
 ]
 
@@ -89,7 +99,7 @@ const TOUR = ['C12', 'C14', 'C15', 'C16', 'C17']
 const CREATOR: Link[] = [
   ['C01', 'Set up a creator account', 'C04', 'NAV', 'PUSH_LEFT'],
   ['C01', 'Explore with a demo creator', 'C19', 'NAV', 'DISSOLVE'],
-  ['C01', 'Send sign-in code', 'C03', 'NAV', 'SMART'],
+  ['C01', 'Sign in', 'C18', 'NAV', 'DISSOLVE'],
   ['C02', 'Sign in', 'C18', 'NAV', 'DISSOLVE'],
   ['C02', 'Explore with a demo creator', 'C19', 'NAV', 'DISSOLVE'],
   ['C03', 'Set up a creator account', 'C04', 'NAV', 'PUSH_LEFT', 0],
@@ -149,12 +159,16 @@ const CREATOR: Link[] = [
 ]
 
 // ---------------------------------------------------------------- phone
-const PHONE_NAV = (from: string): Link[] => [[from, 'Home', 'M05', 'NAV', 'INSTANT'], [from, 'Community', 'M09', 'NAV', 'INSTANT'], [from, 'Saved', 'M12', 'NAV', 'INSTANT'], [from, 'Studio', 'M13', 'NAV', 'INSTANT']]
+const PHONE_NAV = (from: string): Link[] => [[from, 'Home', 'M05', 'NAV', 'INSTANT'], [from, 'Community', 'M09', 'NAV', 'INSTANT'], [from, 'Saved', 'M16', 'NAV', 'INSTANT'], [from, 'Studio', 'M13', 'NAV', 'INSTANT']]
 const PHONE: Link[] = [
   ['M01', 'I’m here to read', 'M02', 'NAV', 'PUSH_LEFT'],
   ['M01', 'Start, about 1 minute', 'M02', 'NAV', 'PUSH_LEFT'],
   ['M01', 'Skip, just browse', 'M05', 'NAV', 'DISSOLVE'],
-  ['M01', 'Sign in to Creator Studio', 'M13'],
+  ['M01', 'sign in to Creator Studio', 'M13'],
+  ['M01', 'Sign in as a reader', 'M15'],
+  ['M15', 'Sign in', 'M05', 'NAV', 'DISSOLVE'],
+  ['M15', 'Create a reader account', 'M02', 'NAV', 'PUSH_LEFT'],
+  ...PHONE_NAV('M16'),
   ['M02', 'Next', 'M03', 'NAV', 'SMART'],
   ['M03', 'Next', 'M04', 'NAV', 'SMART'],
   ['M04', 'Enter your name to finish', 'M05', 'NAV', 'DISSOLVE'],
@@ -175,8 +189,8 @@ const PHONE: Link[] = [
 ]
 
 // header links shared by every reader page on desktop
-const READER_HEADER = ['D10', 'D11', 'D12', 'D13', 'D14', 'D15', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22'].flatMap((s): Link[] => [
-  [s, 'Home', 'D10', 'NAV', 'INSTANT'], [s, 'Community', 'D18', 'NAV', 'INSTANT'], [s, 'Creator studio', 'C01'], [s, 'Live demo', 'C01'], [s, '+ Add news', 'D19'],
+const READER_HEADER = ['D10', 'D11', 'D12', 'D13', 'D14', 'D15', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22', 'D26', 'D27', 'D28'].flatMap((s): Link[] => [
+  [s, 'Home', 'D10', 'NAV', 'INSTANT'], [s, 'Community', 'D18', 'NAV', 'INSTANT'], [s, 'Saved', 'D26', 'NAV', 'INSTANT'], [s, 'Creator studio', 'C01'], [s, 'Live demo', 'C01'], [s, '+ Add news', 'D19'],
 ])
 
 /** loading states that move on by themselves */
