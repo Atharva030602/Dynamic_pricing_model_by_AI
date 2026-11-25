@@ -1,6 +1,6 @@
 # Twofold in Figma: screens and a clickable prototype
 
-Three HTML files hold 74 screens captured from the working app, including empty, loading and error states.
+One merged file, twofold-all.html, holds all 74 screens plus the design system (the three separate files are still included). They hold 74 screens captured from the working app, including empty, loading and error states.
 `scripter-prototype.ts` turns them into a clickable prototype.
 
 ## Steps

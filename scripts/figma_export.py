@@ -335,6 +335,7 @@ async def main():
         write('figma/twofold-creator-desktop.html', 'Twofold: creator, desktop 1440', cd, 4)
         mb = await capture(b, 390, 844, 'phone', MOBILE)
         write('figma/twofold-mobile.html', 'Twofold: phone 390', mb, 7)
+        import figma_merge; figma_merge.main()
         await b.close()
 
 if __name__ == "__main__":

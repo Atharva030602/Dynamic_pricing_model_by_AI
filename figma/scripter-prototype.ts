@@ -2,11 +2,11 @@
  * Twofold: wire the imported screens into a clickable Figma prototype.
  *
  * How to use
- * 1. In one Figma page, import all three HTML files with an HTML-to-Figma plugin
- *    (twofold-reader-desktop.html, twofold-creator-desktop.html, twofold-mobile.html).
+ * 1. In one Figma page, import twofold-all.html with an HTML-to-Figma plugin (it holds every
+ *    screen plus the design system). The three separate files work too: import all of them.
  *    Each screen arrives with a caption such as "D10 Home, For you with welcome note (desktop)".
  * 2. Open the Scripter plugin on that page, paste this whole file, press Run.
- * 3. Press Present (▶) and pick a flow: Reader desktop, Creator desktop or Phone.
+ * 3. Press Present (▶) and pick a flow: reader first visit, returning reader, reader home, creator, or phone.
  *
  * What it does
  * - Finds each screen by its caption, lifts it to the top level of the page and names it "D10 …".
@@ -14,7 +14,7 @@
  * - Wires about 300 interactions: navigate, back, overlays (AI companion, account menu, tour, publish
  *   dialog), overlay swaps for the 5-step tour, after-delay transitions for loading states,
  *   scroll-to anchors, Esc to close overlays, and links between the reader, creator and phone flows.
- * - Adds four flow starting points.
+ * - Adds five flow starting points.
  * Safe to run twice: it clears the reactions it set before and sets them again.
  */
 
@@ -202,6 +202,7 @@ const TIMERS: [string, number, string, Kind?][] = [
 
 const FLOWS: [string, string][] = [
   ['D01', 'Reader, desktop: first visit'],
+  ['D24', 'Reader, desktop: returning (sign in)'],
   ['D10', 'Reader, desktop: home'],
   ['C01', 'Creator, desktop: sign in and set up'],
   ['M01', 'Phone: reader'],
