@@ -7,3 +7,4 @@ dist
 tsconfig.tsbuildinfo
 figma/*.html
 .data
+__pycache__
