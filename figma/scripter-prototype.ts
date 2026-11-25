@@ -215,7 +215,7 @@ const OVERLAYS: Record<string, OverlayPositionType> = {
 
 // ===================================================================== engine
 const LABEL = /^([DCM]\d{2})\s+(.+?)\s+\((desktop|phone)\)$/
-const norm = (s: string) => s.replace(/[‘’]/g, '’').replace(/[“”]/g, '"').replace(/ /g, ' ').replace(/\s+/g, ' ').trim()
+const norm = (s: string) => s.replace(/[‘’]/g, '’').replace(/[“”]/g, '"').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
 const lower = (s: string) => norm(s).toLowerCase()
 const page = figma.currentPage
 const screens = new Map<string, FrameNode>()
