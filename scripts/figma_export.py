@@ -301,6 +301,8 @@ def write(path, title, frames, cols):
       '*{box-sizing:border-box}</style></head><body><h1 class="title">' + title + '</h1><div class="grid">' + ''.join(frames) + '</div></body></html>')
     os.makedirs('figma', exist_ok=True)
     open(path, 'w').write(doc)
+    from figma_design_system import patch as add_design_system
+    add_design_system(path)
     print(path, len(doc) // 1024, 'KB', len(frames), 'frames')
 
 async def main():
@@ -314,4 +316,5 @@ async def main():
         write('figma/twofold-mobile.html', 'Twofold: phone 390', mb, 7)
         await b.close()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

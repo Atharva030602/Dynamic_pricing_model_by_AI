@@ -1,6 +1,6 @@
 # Twofold in Figma: screens and a clickable prototype
 
-Three HTML files hold 70 screens captured from the working app, including empty, loading and error states.
+Three HTML files hold 67 screens captured from the working app, including empty, loading and error states.
 `scripter-prototype.ts` turns them into a clickable prototype.
 
 ## Steps
@@ -16,6 +16,10 @@ Three HTML files hold 70 screens captured from the working app, including empty,
 3. Open the **Scripter** plugin on the same page, paste the whole of `scripter-prototype.ts`, and press Run.
    It reports how many screens it found and how many interactions it wired, and lists anything it couldn't match.
 4. Press **Present**. Pick a flow: *Reader, desktop: first visit*, *Reader, desktop: home*, *Creator, desktop: sign in and set up*, or *Phone: reader*.
+
+## Design system frame
+
+Each HTML file opens with a 1440-wide frame, **DS Twofold design system**, above the screens. It lists every colour token (hex, CSS variable, use, contrast on white and paper), the three type families and the full type scale, spacing, radii, borders, elevation, motion, chart rules, and the components (buttons, segmented control, chips, use and status tags, meters, stars, inputs, story card, licence row, licence JSON). Values come from `src/index.css` and `src/ui/kit.tsx`. The Scripter script ignores this frame; the screens are unchanged. `scripts/figma_design_system.py` re-adds it after a re-capture.
 
 ## What the script sets up
 
