@@ -202,6 +202,29 @@ Any MCP client that supports remote servers can connect to `$H/api/mcp`.
 
 ---
 
+## Accounts database (one master, two replicas)
+
+Every reader and creator sign-up is written to a **master** table, then copied to two **read replicas**:
+
+| Copy | Who reads it | What it holds | How to read it |
+|---|---|---|---|
+| Master | You (admin) | Everything: id, role, name, handle, email (creators), city, region (country and state from the network, never the IP), interests or beat, formats, languages, AI-training default, consent record, a "what we stored" manifest | `GET /api/db?view=master` (emails masked unless `x-admin-key` matches `ADMIN_KEY`) |
+| Human replica | People | id, role, name, handle, city, interests, joined. No email or tokens | `GET /api/db?view=human` |
+| Agent replica | AI agents | Creators only, no contact details: handle, region, beat, formats, languages, default AI terms | `GET /api/db?view=agent` with `Authorization: Bearer demo-finpilot`, or the MCP tool `list_creators` |
+
+Each write gets a log sequence number (LSN) and goes into a replication log; each replica records the last LSN it applied. If a replica is behind, it replays the missing log entries on its next read. `GET /api/db?view=log` shows the log.
+
+Each account has a JSON manifest (`GET /api/accounts?id=acc_…`) that lists every stored field, its purpose, where it came from, and which copies hold it, plus what is never stored. The person can delete the account with the token kept in their browser (`DELETE /api/accounts?id=…`).
+
+**See it live:** open `#/database` (also in the account menu as "What we stored", and in the studio header). It refreshes every 3 seconds.
+
+**Where the data lives:**
+- Locally (`npm run dev`): the file `.data/twofold-db.json` (git-ignored). On your own machine you are the admin.
+- On Vercel with Upstash Redis connected (`KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_*`): keys `tf:db:master`, `tf:db:replica:human`, `tf:db:replica:agent`, `tf:db:log`, `tf:db:lsn`.
+- On Vercel without Redis: function memory, which resets when the function restarts. Connect Redis to keep accounts.
+
+Limits: a prototype store. Writes read and rewrite one document, so two sign-ups in the same instant can race; a production version would use a real database with transactions (Postgres, with logical replication to the two read copies).
+
 ## Run it
 
 ```bash

@@ -3,6 +3,7 @@ import { handleMcp, TOOLS, PROTOCOL_VERSION, SEED as RAW_SEED, SEED_SEALS, CREAT
 const SEED = RAW_SEED.map((w) => ({ ...w, seal: SEED_SEALS[w.id] }))
 import { addEvent, listWorks, storeKind } from './_lib/store.mjs'
 import { cors, hostOf, readJson } from './_lib/http.mjs'
+import { readView } from './_lib/db.mjs'
 
 export default async function handler(req, res) {
   cors(res)
@@ -21,12 +22,14 @@ export default async function handler(req, res) {
   let body
   try { body = await readJson(req) } catch { return res.status(400).json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) }
   const published = await listWorks().catch(() => [])
+  const creators = await readView('agent').then((r) => r.rows).catch(() => [])
   const ids = new Set(published.map((w) => w.id))
   const ctx = {
     works: [...published, ...SEED.filter((w) => !ids.has(w.id))],
     creatorName: (id) => CREATORS[id]?.name || published.find((w) => w.creatorId === id)?.author?.name || id,
     host,
     now: () => new Date().toISOString(),
+    creators,
     pending: [],
     record(e) { this.pending.push(e) },
   }

@@ -10,6 +10,7 @@ import robots from '../api/robots.js'
 import insight from '../api/insight.js'
 import posts from '../api/posts.js'
 import category from '../api/category.js'
+import db from '../api/db.js'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
@@ -23,6 +24,8 @@ app.all('/api/review', wrap(review))
 app.all('/api/insight', wrap(insight))
 app.all('/api/posts', wrap(posts))
 app.all('/api/category', wrap(category))
+app.all('/api/accounts', (req, res, next) => { req.query.resource = 'accounts'; next() }, wrap(db))
+app.all('/api/db', wrap(db))
 app.get('/api/robots', wrap(robots))
 app.get('/robots.txt', wrap(robots))
 app.listen(8787, () => console.log('api on :8787'))

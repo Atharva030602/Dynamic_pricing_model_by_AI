@@ -4,7 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/licence/:id", "destination": "/api/licence?id=:id" },
-    { "source": "/robots.txt", "destination": "/api/robots" }
+    { "source": "/robots.txt", "destination": "/api/robots" },
+    { "source": "/api/accounts", "destination": "/api/db?resource=accounts" }
   ],
   "functions": { "api/*.js": { "maxDuration": 30 } }
 }

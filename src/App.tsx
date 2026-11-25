@@ -13,6 +13,7 @@ import Hub, { StudioTour } from './screens/Hub'
 import CreatorJoin from './screens/CreatorJoin'
 import CreatorGate from './screens/CreatorGate'
 import Report from './screens/Report'
+import Database from './screens/Database'
 
 export default function App() {
   const { path, params } = useRoute()
@@ -31,6 +32,7 @@ export default function App() {
   if (path.startsWith('/work/')) return <ReaderShell><WorkPage id={path.split('/')[2]} /></ReaderShell>
   if (path === '/community') return <ReaderShell active="community"><Community /></ReaderShell>
   if (path === '/report') return <ReaderShell><Report /></ReaderShell>
+  if (path === '/database' || path === '/admin') return <ReaderShell><Database /></ReaderShell>
   // first visit: start with onboarding, unless the visitor chose to just browse
   if (!profile && !skippedOnboarding && [...params.keys()].length === 0) return <Onboarding />
   return <ReaderShell active="home"><Home /></ReaderShell>
@@ -79,7 +81,8 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
                 <Stars value={rating.stars} size={11} className="text-[11.5px]" />
               </span>
             </span>
-            <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer whitespace-nowrap">Sign out</button>
+<a href="#/database" className="text-[13px] text-muted hover:text-ink underline underline-offset-4 whitespace-nowrap hidden lg:inline">Database</a>
+                        <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer whitespace-nowrap">Sign out</button>
           </div>
         </div>
       </header>
@@ -134,6 +137,7 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
                     <a href="#/?c=saved" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">Saved stories</a>
                     <a href="#/report" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">My reading report{profile.premium ? '' : ' (Premium)'}</a>
                     <a href="#/community" className="block px-3 py-2 rounded-[8px] hover:bg-line-2 md:hidden">Community</a>
+                    <a href="#/database" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">What we stored</a>
                     <button onClick={() => { setProfile(null); go('/welcome') }} className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-line-2 cursor-pointer">Sign out</button>
                   </div>
                 )}

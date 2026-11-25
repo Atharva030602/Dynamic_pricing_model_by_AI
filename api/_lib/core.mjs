@@ -712,6 +712,7 @@ var TOOLS = [
   { name: "get_work_preview", description: "Short summary, key facts and the free preview words, so you can judge relevance before paying. Free.", inputSchema: { type: "object", properties: { work_id: { type: "string" } }, required: ["work_id"] } },
   { name: "get_full_work", description: "Full text for a given use. Without a valid licence token returns access_required with offers.", inputSchema: { type: "object", properties: { work_id: { type: "string" }, use: { type: "string", enum: ["ai_quote", "ai_train", "republish", "read"] }, licence_token: { type: "string" } }, required: ["work_id", "use"] } },
   { name: "purchase_licence", description: "Buy a licence for one use of one work (simulated payment). Returns a licence token, a usage record and the attribution line you must show.", inputSchema: { type: "object", properties: { work_id: { type: "string" }, use: { type: "string", enum: ["ai_quote", "republish", "read"] } }, required: ["work_id", "use"] } },
+  { name: "list_creators", description: "Directory of creators from the agent replica of the accounts database: handle, region, beat, formats, languages and default AI terms. Readers are never listed. Free.", inputSchema: { type: "object", properties: { query: { type: "string", description: "Match beat, handle, name or region" }, country: { type: "string" } } } },
   { name: "report_work", description: "Report a work as fake or misleading. Weighted by your history; does not pause the creator\u2019s other earnings.", inputSchema: { type: "object", properties: { work_id: { type: "string" }, reason: { type: "string" }, evidence: { type: "string" } }, required: ["work_id", "reason"] } }
 ];
 var enc = (o) => typeof btoa === "function" ? btoa(unescape(encodeURIComponent(JSON.stringify(o)))) : Buffer.from(JSON.stringify(o)).toString("base64");
@@ -749,6 +750,11 @@ function handleMcp(req, ctx, auth) {
   const name = String(req.params?.name || "");
   const a = req.params?.arguments || {};
   const w = a.work_id ? ctx.works.find((x) => x.id === a.work_id) : void 0;
+  if (name === "list_creators") {
+    const q = String(a.query || "").toLowerCase().trim();
+    const rows = (ctx.creators || []).filter((c) => (!a.country || String(c.country || "").toLowerCase() === String(a.country).toLowerCase()) && (!q || JSON.stringify(c).toLowerCase().includes(q)));
+    return tool({ source: "agent_replica", count: rows.length, creators: rows.slice(0, 25), note: "Contact details are never shared with agents. Licence each work through purchase_licence.", cost: 0 });
+  }
   if (name !== "search_works" && !w) return tool({ error: "not_found", message: `No work with id ${a.work_id}` }, true);
   switch (name) {
     case "search_works": {

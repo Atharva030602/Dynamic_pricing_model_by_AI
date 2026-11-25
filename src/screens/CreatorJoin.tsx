@@ -4,6 +4,7 @@ import { inr } from '../engine/licence'
 import { useStore, type CreatorAccount } from '../store'
 import { Button, Icon, Photo, cx, go } from '../ui/kit'
 import { TopBar } from './Onboarding'
+import { registerAccount } from '../lib/accounts'
 
 /* Creator sign-up: separate from the reader account, in layers.
    1 You · 2 Your work · 3 Your channels (we study them) · 4 Audience & goals · 5 AI terms · 6 Verify */
@@ -80,6 +81,7 @@ export default function CreatorJoin() {
 
   const finish = () => {
     setCreator({ name: name.trim(), handle, email: email.trim(), city: city.trim(), beat: beat.trim(), languages, formats, socials, goal, audience, aiTraining: ai, createdAt: new Date().toISOString() })
+    registerAccount('creator', { name: name.trim(), handle, email: email.trim(), city: city.trim(), beat: beat.trim(), languages, formats, socials: socials.map((x) => x.network), goal, audience, aiTraining: ai })
     go('/studio/hub?tour=1')
   }
 

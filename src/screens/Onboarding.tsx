@@ -4,6 +4,7 @@ import { guessKeywords } from '../data/meta'
 import { rankForUser } from '../engine/similarity'
 import { useStore, type Profile } from '../store'
 import { Button, Logo, Photo, cx, go } from '../ui/kit'
+import { registerAccount } from '../lib/accounts'
 
 /* ---------------------------------------------------------------------------
    First visit: who are you here as? Readers then get a short conversation that
@@ -142,6 +143,7 @@ function ReaderOnboarding() {
       createdAt: profile?.createdAt || new Date().toISOString(),
     }
     setProfile(p)
+    registerAccount('reader', { name: p.name, handle: p.handle, city: p.city, interests: Object.entries(w).sort((x, y) => y[1] - x[1]).map(([k]) => k), socials: connected, premium: p.premium, reportFreq: p.reportFreq })
     go('/?welcome=1')
   }
 
@@ -277,7 +279,7 @@ function ReaderOnboarding() {
           {at >= 6 && (
             <form className="pop-in rounded-[16px] border border-line p-5 max-w-[620px]" onSubmit={(e) => { e.preventDefault(); if (name.trim()) finish() }}>
               <h2 className="font-serif text-[26px] font-medium">Last step: what should we call you?</h2>
-              <p className="text-[14px] text-ink-2 mt-1">Your reader account stays in this browser. There’s no password in the prototype.</p>
+              <p className="text-[14px] text-ink-2 mt-1">We store your name, city and topics in the Twofold database, never your IP or precise location. See exactly what was saved under Account → What we stored.</p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 <label className="block"><span className="text-[14px] font-semibold">Your name</span>
                   <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Asha Kulkarni" className="mt-1.5 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" /></label>
