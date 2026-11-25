@@ -1,6 +1,6 @@
-// Accounts: create (POST), read your own stored-data manifest (GET ?id=), delete (DELETE ?id=).
+// Accounts: create (POST), sign in (POST action=login), sync saved stories (POST action=saved), read your own stored-data manifest (GET ?id=), delete (DELETE ?id=).
 // Writes go to the master; both replicas are updated from the replication log.
-import { createAccount, deleteAccount, getManifest, geoFrom, dbKind } from './db.mjs'
+import { createAccount, deleteAccount, getManifest, geoFrom, dbKind, login, saveSaved } from './db.mjs'
 import { cors, readJson } from './http.mjs'
 import { isAdmin } from './admin.mjs'
 
@@ -11,6 +11,8 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'POST') {
       const b = await readJson(req).catch(() => ({}))
+      if (b.action === 'login') return res.status(200).json(await login(b))
+      if (b.action === 'saved') return res.status(200).json(await saveSaved(b))
       return res.status(201).json({ ...(await createAccount(b, geoFrom(req))), store: dbKind })
     }
     const id = String(req.query?.id || '')

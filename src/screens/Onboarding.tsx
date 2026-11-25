@@ -4,7 +4,7 @@ import { guessKeywords } from '../data/meta'
 import { rankForUser } from '../engine/similarity'
 import { useStore, type Profile } from '../store'
 import { Button, Logo, Photo, cx, go } from '../ui/kit'
-import { registerAccount } from '../lib/accounts'
+import { createAccount } from '../lib/accounts'
 
 /* ---------------------------------------------------------------------------
    First visit: who are you here as? Readers then get a short conversation that
@@ -30,7 +30,7 @@ export default function Onboarding() {
             points={['Connect your channels so we can study your work', 'See what each piece is worth before you publish', 'Separate prices for readers and AI, and a public rating']}
             onClick={() => go('/creator/join')} />
         </div>
-        <p className="text-[13.5px] text-muted mt-6">Already a creator? <a href="#/studio" className="underline underline-offset-4 text-ink-2">Sign in to Creator Studio</a></p>
+        <p className="text-[13.5px] text-muted mt-6">Already have an account? <a href="#/signin" className="underline underline-offset-4 text-ink-2">Sign in as a reader</a> or <a href="#/studio" className="underline underline-offset-4 text-ink-2">sign in to Creator Studio</a></p>
       </main>
     </div>
   )
@@ -91,7 +91,7 @@ const SOCIALS = [
 ]
 
 function ReaderOnboarding() {
-  const { feed, index, setProfile, profile, skipOnboarding } = useStore()
+  const { feed, index, setProfile, profile, skipOnboarding, bookmarked } = useStore()
   const [step, setStep] = useState<Step>('intent')
   const [intents, setIntents] = useState<string[]>([])
   const [w, setW] = useState<Record<string, number>>(profile?.weights || {})
@@ -105,6 +105,12 @@ function ReaderOnboarding() {
   const [report, setReport] = useState<'weekly' | 'monthly' | 'none'>('weekly')
   const [name, setName] = useState(profile?.name || '')
   const [city, setCity] = useState(profile?.city || 'Pune')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [acctErr, setAcctErr] = useState<{ status: number; error: string } | null>(null)
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
+  const ready = name.trim().length > 1 && emailOk && password.length >= 8
   const end = useRef<HTMLDivElement>(null)
 
   const steps: Step[] = ['intent', 'deeper', 'thisthat', 'words', 'connect', 'rhythm', 'account']
@@ -135,16 +141,19 @@ function ReaderOnboarding() {
     setTimeout(() => { setConnecting(null); setConnected((c) => [...c, id]); bump(SOCIALS.find((s) => s.id === id)!.adds, 1.5) }, 1100)
   }
 
-  const finish = () => {
+  const finish = async () => {
     const p: Profile = {
       role: 'reader', name: name.trim(), handle: '@' + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, ''), city: city.trim(),
       keywords: keywords.slice(0, 10), weights: w, rhythm: { when, length }, socials: connected,
       depth: pairs.depth === 1 ? 'deep' : 'brief', premium: report !== 'none', reportFreq: report === 'none' ? undefined : report,
       createdAt: profile?.createdAt || new Date().toISOString(),
     }
+    setBusy(true); setAcctErr(null)
+    const r = await createAccount('reader', { name: p.name, handle: p.handle, email: email.trim(), password, city: p.city, interests: Object.entries(w).sort((x, y) => y[1] - x[1]).map(([k]) => k), socials: connected, premium: p.premium, reportFreq: p.reportFreq, prefs: { keywords: p.keywords, weights: p.weights, rhythm: p.rhythm, depth: p.depth }, saved: bookmarked })
+    setBusy(false)
+    if (!r.ok && r.status !== 0) { setAcctErr(r); return }
     setProfile(p)
-    registerAccount('reader', { name: p.name, handle: p.handle, city: p.city, interests: Object.entries(w).sort((x, y) => y[1] - x[1]).map(([k]) => k), socials: connected, premium: p.premium, reportFreq: p.reportFreq })
-    go('/?welcome=1')
+    go(r.ok ? '/?welcome=1' : '/?welcome=1&offline=1')
   }
 
   return (
@@ -277,16 +286,29 @@ function ReaderOnboarding() {
           )}
 
           {at >= 6 && (
-            <form className="pop-in rounded-[16px] border border-line p-5 max-w-[620px]" onSubmit={(e) => { e.preventDefault(); if (name.trim()) finish() }}>
+            <form className="pop-in rounded-[16px] border border-line p-5 max-w-[620px]" onSubmit={(e) => { e.preventDefault(); if (ready && !busy) finish() }}>
               <h2 className="font-serif text-[26px] font-medium">Last step: what should we call you?</h2>
-              <p className="text-[14px] text-ink-2 mt-1">We store your name, city and topics in the Twofold database, never your IP or precise location. See exactly what was saved under Account → What we stored.</p>
+              <p className="text-[14px] text-ink-2 mt-1">Your email and password let you sign in on any device; your topics and saved stories come with you. We never store your IP or precise location, and your password is kept only as a salted hash. See exactly what was saved under Account → What we stored.</p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 <label className="block"><span className="text-[14px] font-semibold">Your name</span>
                   <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Asha Kulkarni" className="mt-1.5 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" /></label>
                 <label className="block"><span className="text-[14px] font-semibold">City</span>
                   <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1.5 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" /></label>
+                <label className="block"><span className="text-[14px] font-semibold">Email</span>
+                  <input type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setAcctErr(null) }} placeholder="you@example.com" className={cx('mt-1.5 h-11 w-full rounded-[10px] border px-3 text-[16px]', email && !emailOk ? 'border-bad' : 'border-line')} />
+                  {email && !emailOk && <span className="block text-[12.5px] text-bad mt-1">Use a full email address, like name@example.com</span>}</label>
+                <label className="block"><span className="text-[14px] font-semibold">Password</span>
+                  <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="mt-1.5 h-11 w-full rounded-[10px] border border-line px-3 text-[16px]" />
+                  {password && password.length < 8 && <span className="block text-[12.5px] text-muted mt-1">{8 - password.length} more character{8 - password.length > 1 ? 's' : ''}</span>}</label>
               </div>
-              <Button type="submit" variant="primary" className="mt-5" disabled={!name.trim()}>{name.trim() ? 'Create account and see my feed' : 'Enter your name to finish'}</Button>
+              {acctErr && (
+                <div role="alert" className="mt-4 rounded-[10px] border border-bad/40 bg-bad-wash p-3 text-[14px]">
+                  <p className="font-semibold text-bad">{acctErr.error}</p>
+                  {acctErr.status === 409 && <a href="#/signin" className="inline-block mt-1 underline underline-offset-4 text-ink">Sign in to your account</a>}
+                </div>
+              )}
+              <Button type="submit" variant="primary" className="mt-5" disabled={!ready || busy}>{busy ? 'Creating your account…' : ready ? 'Create account and see my feed' : name.trim().length < 2 ? 'Enter your name to finish' : !emailOk ? 'Add your email' : 'Choose a password'}</Button>
+              <p className="text-[13.5px] text-muted mt-3">Already have an account? <a href="#/signin" className="underline underline-offset-4 text-ink-2">Sign in</a></p>
             </form>
           )}
           <div ref={end} />

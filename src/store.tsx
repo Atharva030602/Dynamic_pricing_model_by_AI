@@ -15,6 +15,7 @@ import { COMMUNITY, type Category, type CommunityPost } from './data/v2'
 import { guessCategory } from './data/meta'
 import { Index } from './engine/similarity'
 import { rateCreator, type Rating } from './engine/rating'
+import { syncSaved, type PrivateAccount } from './lib/accounts'
 
 export interface Profile {
   role: 'reader' | 'creator'
@@ -157,6 +158,8 @@ interface Store {
   profile: Profile | null
   setProfile: (p: Profile | null) => void
   skipOnboarding: () => void
+  /** Restore a reader or creator from the database after sign-in. */
+  signInAs: (a: PrivateAccount) => void
   skippedOnboarding: boolean
   tourDone: boolean
   finishTour: () => void
@@ -371,10 +374,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     for (const id of Object.keys(creators)) m[id] = rateCreator(creators[id], feed, events, p.reports, { likes })
     return m
   }, [creators, feed, events, p.reports, p.liked])
+  const firstSaved = useRef(true)
+  useEffect(() => { if (firstSaved.current) { firstSaved.current = false; return } syncSaved(p.bookmarked) }, [p.bookmarked])
   const recordRead = (id: string, secs: number) => commit((x) => ({ ...x, history: [...x.history, { id, ts: new Date().toISOString(), secs: Math.min(1800, Math.round(secs)) }].slice(-300) }), false)
   const ratingOf = (id: string) => ratings[id] || rateCreator(creators[id], feed, events, p.reports)
   const skipOnboarding = () => commit((x) => ({ ...x, skippedOnboarding: true }))
   const finishTour = () => commit((x) => ({ ...x, tourDone: true }))
+  const signInAs = (a: PrivateAccount) => commit((x) => {
+    const str = (v: unknown) => (typeof v === 'string' ? v : '')
+    const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : [])
+    if (a.role === 'creator') {
+      const c: CreatorAccount = { name: a.name, handle: a.handle, email: a.email, city: str(a.city), beat: str(a.beat), languages: arr(a.languages), formats: arr(a.formats), socials: [], goal: (['reach', 'income', 'both'].includes(str(a.goal)) ? a.goal : 'both') as CreatorAccount['goal'], audience: arr(a.audience), aiTraining: (['ask', 'no', 'paid'].includes(str(a.aiTraining)) ? a.aiTraining : 'ask') as CreatorAccount['aiTraining'], createdAt: a.createdAt }
+      return { ...x, creator: c, creatorSession: 'me', tourDone: true, licence: null, draft: x.creatorSession === 'me' ? x.draft : blankDraft() }
+    }
+    const prefs = (a.prefs && typeof a.prefs === 'object' ? a.prefs : {}) as { keywords?: string[]; weights?: Record<string, number>; rhythm?: { when: string; length: string }; depth?: string }
+    const interests = arr(a.interests)
+    const pr: Profile = { role: 'reader', name: a.name, handle: a.handle, city: str(a.city), keywords: prefs.keywords || interests, weights: prefs.weights || Object.fromEntries(interests.map((k) => [k, 1])), rhythm: prefs.rhythm, socials: arr(a.socials), depth: prefs.depth, premium: !!a.premium, reportFreq: a.reportFreq === 'monthly' ? 'monthly' : a.reportFreq === 'weekly' ? 'weekly' : undefined, createdAt: a.createdAt }
+    return { ...x, profile: pr, bookmarked: [...new Set([...arr(a.saved), ...x.bookmarked])] }
+  })
   const toggle = (kind: 'liked' | 'bookmarked' | 'promoted', id: string) => commit((x) => {
     const on = x[kind].includes(id)
     const learned = { ...x.learned }
@@ -399,7 +416,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     me, creators, buyers: BUYERS, works, events, reports: p.reports, derivatives: p.derivatives, requests: p.requests,
     seals, draft: p.draft, setDraft, loadSample, valuation, licence, setLicence, applyPreset, publish, addEvent,
     respondRequest, claimDerivative, fileReport, resetDemo, serverOnline,
-    feed, index, profile, setProfile, skipOnboarding, skippedOnboarding: p.skippedOnboarding, tourDone: p.tourDone, finishTour,
+    feed, index, profile, setProfile, skipOnboarding, signInAs, skippedOnboarding: p.skippedOnboarding, tourDone: p.tourDone, finishTour,
     liked: p.liked, bookmarked: p.bookmarked, promoted: p.promoted, learned: p.learned, toggle,
     creator: ca, creatorSession: p.creatorSession, setCreator, startCreatorSession, newDraft, promotions: p.promotions, promote, stopPromotion,
     customCategories: p.customCategories, addCustomCategory, ratingOf, updateProfile, history: p.history, recordRead,

@@ -14,12 +14,15 @@ import CreatorJoin from './screens/CreatorJoin'
 import CreatorGate from './screens/CreatorGate'
 import Report from './screens/Report'
 import Database from './screens/Database'
+import SignIn from './screens/SignIn'
+import { forget } from './lib/accounts'
 
 export default function App() {
   const { path, params } = useRoute()
   const { profile, skippedOnboarding, creatorSession } = useStore()
   if (path === '/welcome') return <Onboarding />
   if (path === '/creator/join') return <CreatorJoin />
+  if (path === '/signin') return <SignIn />
   if (path.startsWith('/studio')) {
     const tab = path.split('/')[2] || 'hub'
     if (!creatorSession) return <CreatorGate next={`/studio/${tab}`} />
@@ -35,7 +38,7 @@ export default function App() {
   if (path === '/database' || path === '/admin') return <ReaderShell><Database /></ReaderShell>
   // first visit: start with onboarding, unless the visitor chose to just browse
   if (!profile && !skippedOnboarding && [...params.keys()].length === 0) return <Onboarding />
-  return <ReaderShell active="home"><Home /></ReaderShell>
+  return <ReaderShell active={params.get('c') === 'saved' ? 'saved' : 'home'}><Home /></ReaderShell>
 }
 
 const TABS = [
@@ -82,7 +85,7 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
               </span>
             </span>
 <a href="#/database" className="text-[13px] text-muted hover:text-ink underline underline-offset-4 whitespace-nowrap hidden lg:inline">Database</a>
-                        <button onClick={() => { startCreatorSession(null); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer whitespace-nowrap">Sign out</button>
+                        <button onClick={() => { startCreatorSession(null); forget('creator'); go('/') }} className="text-[13px] text-muted hover:text-ink underline underline-offset-4 cursor-pointer whitespace-nowrap">Sign out</button>
           </div>
         </div>
       </header>
@@ -102,7 +105,7 @@ function StudioShell({ tab, children }: { tab: string; children: ReactNode }) {
   )
 }
 
-function ReaderShell({ children, active }: { children: ReactNode; active?: 'home' | 'community' }) {
+function ReaderShell({ children, active }: { children: ReactNode; active?: 'home' | 'community' | 'saved' }) {
   const { profile, setProfile } = useStore()
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -119,6 +122,7 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
           <nav className="hidden md:flex gap-1 text-[14.5px] font-medium" aria-label="Main">
             <a href="#/" aria-current={active === 'home' ? 'page' : undefined} className={cx('h-9 px-3 rounded-[9px] grid place-items-center', active === 'home' ? 'text-ink bg-line-2' : 'text-ink-2 hover:text-ink')}>Home</a>
             <a href="#/community" aria-current={active === 'community' ? 'page' : undefined} className={cx('h-9 px-3 rounded-[9px] grid place-items-center', active === 'community' ? 'text-ink bg-line-2' : 'text-ink-2 hover:text-ink')}>Community</a>
+            <a href="#/?c=saved" aria-current={active === 'saved' ? 'page' : undefined} className={cx('h-9 px-3 rounded-[9px] grid place-items-center', active === 'saved' ? 'text-ink bg-line-2' : 'text-ink-2 hover:text-ink')}>Saved</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <a href="#/studio/demo" className="hidden lg:grid h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium place-items-center">Live demo</a>
@@ -138,19 +142,22 @@ function ReaderShell({ children, active }: { children: ReactNode; active?: 'home
                     <a href="#/report" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">My reading report{profile.premium ? '' : ' (Premium)'}</a>
                     <a href="#/community" className="block px-3 py-2 rounded-[8px] hover:bg-line-2 md:hidden">Community</a>
                     <a href="#/database" className="block px-3 py-2 rounded-[8px] hover:bg-line-2">What we stored</a>
-                    <button onClick={() => { setProfile(null); go('/welcome') }} className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-line-2 cursor-pointer">Sign out</button>
+                    <button onClick={() => { setProfile(null); forget('reader'); go('/signin') }} className="w-full text-left px-3 py-2 rounded-[8px] hover:bg-line-2 cursor-pointer">Sign out</button>
                   </div>
                 )}
               </div>
             ) : (
-              <a href="#/welcome" className="h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium grid place-items-center">Sign up</a>
+              <>
+                <a href="#/signin" className="h-9 px-3 rounded-[9px] text-[14px] font-medium grid place-items-center text-ink-2 hover:text-ink">Sign in</a>
+                <a href="#/welcome" className="h-9 px-3.5 rounded-[9px] border border-line text-[14px] font-medium grid place-items-center">Sign up</a>
+              </>
             )}
           </div>
         </div>
       </header>
       <main>{children}</main>
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-line grid grid-cols-4" aria-label="Main">
-        {[['#/', 'Home', active === 'home'], ['#/community', 'Community', active === 'community'], ['#/?c=saved', 'Saved', false], ['#/studio', 'Studio', false]].map(([href, label, on]) => (
+        {[['#/', 'Home', active === 'home'], ['#/community', 'Community', active === 'community'], ['#/?c=saved', 'Saved', active === 'saved'], ['#/studio', 'Studio', false]].map(([href, label, on]) => (
           <a key={label as string} href={href as string} aria-current={on ? 'page' : undefined} className={cx('h-14 grid place-items-center text-[12.5px] font-medium', on ? 'text-ink' : 'text-muted')}>
             <span className="flex flex-col items-center gap-0.5"><span className={cx('w-6 h-[3px] rounded-full', on ? 'bg-ink' : 'bg-transparent')} />{label as string}</span>
           </a>

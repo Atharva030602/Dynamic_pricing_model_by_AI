@@ -216,6 +216,10 @@ Each write gets a log sequence number (LSN) and goes into a replication log; eac
 
 Each account has a JSON manifest (`GET /api/accounts?id=acc_…`) that lists every stored field, its purpose, where it came from, and which copies hold it, plus what is never stored. The person can delete the account with the token kept in their browser (`DELETE /api/accounts?id=…`).
 
+**Sign in.** Readers and creators sign up with an email and a password (at least 8 characters). The password is stored only as a salted scrypt hash in the master; it never reaches a replica or the manifest. Readers sign in at `#/signin`, creators at `#/studio`. Sign-in checks the master (`POST /api/accounts` with `action: "login"`), returns the person's own record, and issues a session token (stored hashed, last 5 kept) and a fresh delete token. Errors: no account for that email (404), wrong password (401), email already used for that role at sign-up (409).
+
+**Saved stories follow the account.** Tap Save on any story; it appears under **Saved** in the top bar (and the bottom bar on phones). While signed in, the list is synced to the master (`action: "saved"`, session token required) and restored when you sign in on another device. Saved stories and feed settings are master-only: neither replica receives them.
+
 **See it live:** open `#/database` (also in the account menu as "What we stored", and in the studio header). It refreshes every 3 seconds.
 
 **Where the data lives:**

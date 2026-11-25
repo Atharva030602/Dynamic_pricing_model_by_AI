@@ -123,7 +123,7 @@ async def join_flow(pg, upto):
     await setstate(pg, {'profile': READER}, '/creator/join')
     if upto == 'bademail':
         await pg.get_by_label('Email').fill('asha@'); await pg.get_by_placeholder('e.g. Football, Civic, Markets').fill('Football'); return
-    await pg.get_by_label('Email').fill('asha@example.com'); await pg.get_by_placeholder('e.g. Football, Civic, Markets').fill('Football')
+    await pg.get_by_label('Email').fill('asha@example.com'); await pg.get_by_label('Password').fill('twofold-demo'); await pg.get_by_placeholder('e.g. Football, Civic, Markets').fill('Football')
     await pg.get_by_role('button', name='Marathi', exact=True).click()
     await pg.get_by_role('button', name='Continue').click(); await pg.wait_for_timeout(200)
     await pg.get_by_role('button', name='Videos Reviews, explainers, reels').click()

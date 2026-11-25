@@ -15,7 +15,7 @@ export default function Home() {
   const { params } = useRoute()
   const tab = (params.get('c') as Tab) || (profile ? 'foryou' : 'top')
   const q = params.get('q') || ''
-  const welcome = params.get('welcome') === '1'
+  const welcome = params.get('welcome')
 
   const ranked = useMemo(() => {
     const items = feed.map((w) => ({ ...w, keywords: w.meta.keywords, likes: w.meta.likes + (promoted.includes(w.id) ? 400 : 0) + (promotions[w.id] ? 5000 : 0) }))
@@ -39,7 +39,7 @@ export default function Home() {
     ...(profile ? [{ id: 'foryou' as Tab, label: 'For you' }] : []),
     { id: 'top', label: 'Top stories' },
     ...CATEGORY_LIST.map((c) => ({ id: c.id as Tab, label: c.id })),
-    ...(bookmarked.length ? [{ id: 'saved' as Tab, label: `Saved (${bookmarked.length})` }] : []),
+    { id: 'saved' as Tab, label: bookmarked.length ? `Saved (${bookmarked.length})` : 'Saved' },
   ]
 
   return (
@@ -64,7 +64,7 @@ export default function Home() {
         </aside>
 
         <div className="min-w-0">
-          {welcome && profile && <WelcomeNote name={profile.name} n={profile.keywords.length} />}
+          {welcome && profile && <WelcomeNote name={profile.name} n={profile.keywords.length} back={welcome === 'back'} saved={bookmarked.length} />}
           {newest && !q && (
             <a href={`#/work/${newest.id}`} className="arrive mb-4 flex items-center gap-3 rounded-[12px] px-3 py-2.5 border border-line hover:border-faint">
               <Icon.live /> <span className="text-[14px] font-semibold shrink-0">Just published</span>
@@ -149,15 +149,15 @@ export default function Home() {
   )
 }
 
-function WelcomeNote({ name, n }: { name: string; n: number }) {
+function WelcomeNote({ name, n, back, saved }: { name: string; n: number; back?: boolean; saved: number }) {
   const [open, setOpen] = useState(true)
   if (!open) return null
   return (
     <div className="arrive mb-4 rounded-[12px] border border-line p-4 flex items-start gap-3">
       <span className="text-[20px]" aria-hidden>👋</span>
       <div className="flex-1">
-        <p className="text-[15px] font-semibold">Welcome, {name.split(' ')[0]}. This feed is yours.</p>
-        <p className="text-[14px] text-ink-2 mt-0.5">It’s built from the {n} topics you picked, and learns from what you like and save. Each story says why it’s here.</p>
+        <p className="text-[15px] font-semibold">{back ? `Welcome back, ${name.split(' ')[0]}.` : `Welcome, ${name.split(' ')[0]}. This feed is yours.`}</p>
+        <p className="text-[14px] text-ink-2 mt-0.5">{back ? <>Your {n} topics are back{saved ? <>, and so are your <a href="#/?c=saved" className="underline underline-offset-4">{saved} saved stor{saved > 1 ? 'ies' : 'y'}</a></> : ''}.</> : <>It’s built from the {n} topics you picked, and learns from what you like and save. Each story says why it’s here.</>}</p>
       </div>
       <a href="#/welcome" className="text-[13.5px] underline underline-offset-4 text-ink-2 shrink-0">Edit topics</a>
       <button onClick={() => setOpen(false)} aria-label="Dismiss" className="text-muted hover:text-ink cursor-pointer"><Icon.close /></button>
@@ -330,10 +330,11 @@ function FeedCard({ w, why, c }: { w: Decorated; why: string; c: { id: string; n
 }
 
 function Empty({ tab }: { tab: Tab }) {
+  const { profile } = useStore()
   return (
     <div className="rounded-[14px] border border-dashed border-line p-10 text-center">
       <p className="text-[17px] font-semibold">{tab === 'saved' ? 'Nothing saved yet' : `No ${tab} stories yet`}</p>
-      <p className="text-[14.5px] text-ink-2 mt-1">{tab === 'saved' ? 'Tap Save on any story to keep it here.' : 'Follow more topics, or publish the first one from the studio.'}</p>
+      <p className="text-[14.5px] text-ink-2 mt-1">{tab === 'saved' ? (profile ? 'Tap Save on any story to keep it here. Saved stories follow your account to any device.' : 'Tap Save on any story to keep it here. Sign in to keep them on every device.') : 'Follow more topics, or publish the first one from the studio.'}</p>
       <a href="#/?c=top" className="inline-block mt-4 underline underline-offset-4">See top stories</a>
     </div>
   )

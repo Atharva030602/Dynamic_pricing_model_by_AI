@@ -4,7 +4,7 @@ import { inr } from '../engine/licence'
 import { useStore, type CreatorAccount } from '../store'
 import { Button, Icon, Photo, cx, go } from '../ui/kit'
 import { TopBar } from './Onboarding'
-import { registerAccount } from '../lib/accounts'
+import { createAccount } from '../lib/accounts'
 
 /* Creator sign-up: separate from the reader account, in layers.
    1 You · 2 Your work · 3 Your channels (we study them) · 4 Audience & goals · 5 AI terms · 6 Verify */
@@ -49,10 +49,13 @@ export default function CreatorJoin() {
   const [ai, setAi] = useState<CreatorAccount['aiTraining']>(creator?.aiTraining || 'ask')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [joinErr, setJoinErr] = useState<{ status: number; error: string } | null>(null)
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
 
   const handle = '@' + (name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'you')
-  const okStep = [name.trim().length > 1 && emailOk && beat.trim().length > 1, formats.length > 0 && cats.length > 0, true, audience.length > 0, true, code === DEMO_CODE][i]
+  const okStep = [name.trim().length > 1 && emailOk && beat.trim().length > 1 && password.length >= 8, formats.length > 0 && cats.length > 0, true, audience.length > 0, true, code === DEMO_CODE][i]
 
   const study = useMemo(() => {
     if (!socials.length) return null
@@ -79,9 +82,12 @@ export default function CreatorJoin() {
     }, 1300)
   }
 
-  const finish = () => {
+  const finish = async () => {
+    setBusy(true); setJoinErr(null)
+    const r = await createAccount('creator', { name: name.trim(), handle, email: email.trim(), password, city: city.trim(), beat: beat.trim(), languages, formats, socials: socials.map((x) => x.network), goal, audience, aiTraining: ai })
+    setBusy(false)
+    if (!r.ok && r.status !== 0) { setJoinErr(r); return }
     setCreator({ name: name.trim(), handle, email: email.trim(), city: city.trim(), beat: beat.trim(), languages, formats, socials, goal, audience, aiTraining: ai, createdAt: new Date().toISOString() })
-    registerAccount('creator', { name: name.trim(), handle, email: email.trim(), city: city.trim(), beat: beat.trim(), languages, formats, socials: socials.map((x) => x.network), goal, audience, aiTraining: ai })
     go('/studio/hub?tour=1')
   }
 
@@ -109,7 +115,8 @@ export default function CreatorJoin() {
             <Section title="Tell us who you are" sub="This is your public byline. Your email is only for signing in and payouts.">
               <Grid>
                 <Field label="Full name"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Asha Kulkarni" className={inp} /></Field>
-                <Field label="Email" hint={email && !emailOk ? 'Use a full email address, like name@example.com' : 'We send a sign-in code here'} bad={!!email && !emailOk}><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inp} /></Field>
+                <Field label="Email" hint={email && !emailOk ? 'Use a full email address, like name@example.com' : 'You sign in to the studio with this'} bad={!!email && !emailOk}><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inp} /></Field>
+                <Field label="Password" hint={password && password.length < 8 ? `${8 - password.length} more character${8 - password.length > 1 ? 's' : ''}` : 'At least 8 characters; stored only as a salted hash'}><input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={inp} /></Field>
                 <Field label="Your beat" hint="One or two words, shown under your name"><input value={beat} onChange={(e) => setBeat(e.target.value)} placeholder="e.g. Football, Civic, Markets" className={inp} /></Field>
                 <Field label="City"><input value={city} onChange={(e) => setCity(e.target.value)} className={inp} /></Field>
               </Grid>
@@ -209,12 +216,18 @@ export default function CreatorJoin() {
             </Section>
           )}
 
+          {joinErr && (
+            <div role="alert" className="mt-6 rounded-[10px] border border-bad/40 bg-bad-wash p-3 text-[14px] max-w-[620px]">
+              <p className="font-semibold text-bad">{joinErr.error}</p>
+              {joinErr.status === 409 && <a href="#/studio" className="inline-block mt-1 underline underline-offset-4 text-ink">Sign in to Creator Studio</a>}
+            </div>
+          )}
           <div className="flex items-center gap-3 mt-8">
             {i > 0 ? <Button onClick={() => setI(i - 1)}>Back</Button> : <Button onClick={() => go('/welcome')}>Cancel</Button>}
             {i < STEPS.length - 1
               ? <Button variant="primary" disabled={!okStep} onClick={() => setI(i + 1)}>{i === 2 && !socials.length ? 'Skip for now' : 'Continue'}</Button>
-              : <Button variant="primary" disabled={!okStep} onClick={finish}>Open my studio</Button>}
-            {!okStep && i === 0 && <span className="text-[13px] text-muted">Name, a valid email and your beat are needed</span>}
+              : <Button variant="primary" disabled={!okStep || busy} onClick={finish}>{busy ? 'Creating your account…' : 'Open my studio'}</Button>}
+            {!okStep && i === 0 && <span className="text-[13px] text-muted">Name, a valid email, a password and your beat are needed</span>}
             {!okStep && i === 1 && <span className="text-[13px] text-muted">Pick at least one format and one category</span>}
             {!okStep && i === 3 && <span className="text-[13px] text-muted">Pick at least one audience</span>}
           </div>

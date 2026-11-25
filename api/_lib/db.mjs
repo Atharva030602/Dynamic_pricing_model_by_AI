@@ -59,6 +59,18 @@ async function save(d, parts = ['lsn', 'master', 'log', 'human', 'agent']) {
 
 // ------------------------------------------------------------------ projections
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex')
+const SECRET = new Set(['tokenHash', 'passwordHash', 'sessions', 'stored'])
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('base64url')
+  return `scrypt$${salt}$${crypto.scryptSync(pw, salt, 32).toString('base64url')}`
+}
+function checkPassword(pw, stored) {
+  const [, salt, hash] = String(stored || '').split('$')
+  if (!salt || !hash) return false
+  const got = crypto.scryptSync(String(pw), salt, 32), want = Buffer.from(hash, 'base64url')
+  return got.length === want.length && crypto.timingSafeEqual(got, want)
+}
+const err = (status, message) => Object.assign(new Error(message), { status })
 
 export function toHuman(m) {
   return {
@@ -81,7 +93,7 @@ export function toAgent(m) {
 
 const PURPOSE = {
   id: 'identify your account', role: 'pick the right app (reader or studio)', name: 'show your name on your profile and works', handle: 'your public @name',
-  email: 'send sign-in codes and reports (creators only)', city: 'local stories and regional analytics', region: 'region analytics; from your network, coarse only',
+  email: 'sign in, and reports if you asked for them', password: 'sign in; kept only as a salted scrypt hash', saved: 'your saved stories, so they follow you to any device', prefs: 'your feed settings (topic weights, rhythm), so sign-in restores your feed', city: 'local stories and regional analytics', region: 'region analytics; from your network, coarse only',
   interests: 'build your feed', beat: 'match your work to readers and agents', formats: 'which formats you publish', languages: 'language of feed and analytics',
   goal: 'tailor the studio', audience: 'who you write for', aiTraining: 'your default AI-training term', socials: 'which networks you connected (names only)',
   premium: 'send reading reports', reportFreq: 'how often reports go out', consent: 'record of what you agreed to', createdAt: 'when you joined', updatedAt: 'last change',
@@ -91,9 +103,9 @@ export function manifest(m) {
   const h = toHuman(m), a = toAgent(m)
   const inH = new Set(['id', 'role', 'name', 'handle', 'city', 'region', 'interests', 'beat', 'formats', 'languages', 'createdAt'])
   const inA = a ? new Set(['id', 'handle', 'name', 'region', 'beat', 'formats', 'languages', 'aiTraining', 'createdAt']) : new Set()
-  const fields = Object.keys(m).filter((k) => !['stored', 'tokenHash'].includes(k) && m[k] !== undefined && m[k] !== '' && !(Array.isArray(m[k]) && !m[k].length)).map((k) => ({
+  const fields = [...Object.keys(m), ...(m.passwordHash ? ['password'] : [])].filter((k) => !SECRET.has(k) && k !== 'passwordHash' && m[k] !== undefined && m[k] !== '' && !(Array.isArray(m[k]) && !m[k].length)).map((k) => ({
     field: k,
-    value: k === 'email' ? m.email.replace(/^(.).*(@.*)$/, '$1•••$2') : m[k],
+    value: k === 'email' ? m.email.replace(/^(.).*(@.*)$/, '$1•••$2') : k === 'password' ? '•••••••• (salted hash only)' : k === 'saved' ? `${m.saved.length} stories` : k === 'prefs' ? 'topic weights, rhythm, depth' : m[k],
     purpose: PURPOSE[k] || 'account data',
     source: k === 'region' ? 'your network (country and state only)' : ['id', 'createdAt', 'updatedAt', 'consent'].includes(k) ? 'created by Twofold' : 'you typed or chose it',
     stored_in: ['master', ...(inH.has(k) ? ['human_replica'] : []), ...(inA.has(k) ? ['agent_replica'] : [])],
@@ -102,7 +114,7 @@ export function manifest(m) {
     schema: 'twofold/account-manifest/v1', account_id: m.id, role: m.role, generated_at: new Date().toISOString(),
     stored: fields,
     replicas: { human_replica: h, agent_replica: a || 'not listed: readers are never shown to AI agents' },
-    not_stored: ['passwords (there are none)', 'your IP address', 'precise location', 'messages or posts from connected social accounts', 'payment details'],
+    not_stored: ['your password in readable form', 'your IP address', 'precise location', 'messages or posts from connected social accounts', 'payment details'],
     retention: 'until you delete the account',
     delete: `DELETE /api/accounts?id=${m.id} with the delete token kept in your browser`,
     law: 'Consent recorded per DPDP Act 2023 and DPDP Rules 2025; purposes listed per field.',
@@ -146,15 +158,21 @@ const list = (xs, n = 12, len = 40) => (Array.isArray(xs) ? xs : []).map((x) => 
 export async function createAccount(input, geo) {
   const role = input.role === 'creator' ? 'creator' : 'reader'
   const name = clean(input.name, 60)
-  if (name.length < 2) throw Object.assign(new Error('Enter a name of at least 2 characters.'), { status: 400 })
-  const email = clean(input.email, 120)
-  if (role === 'creator' && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) throw Object.assign(new Error('Creators need a full email address, like name@example.com.'), { status: 400 })
+  if (name.length < 2) throw err(400, 'Enter a name of at least 2 characters.')
+  const email = clean(input.email, 120).toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) throw err(400, 'Enter a full email address, like name@example.com.')
+  const password = String(input.password || '')
+  if (password.length < 8) throw err(400, 'Use a password of at least 8 characters.')
+  const d0 = await load()
+  if (Object.values(d0.master).some((x) => x.role === role && x.email === email)) throw err(409, `There is already a ${role} account for ${email}. Sign in instead.`)
   const deleteToken = crypto.randomBytes(18).toString('base64url')
+  const sessionToken = crypto.randomBytes(24).toString('base64url')
   const now = new Date().toISOString()
+  const prefs = input.prefs && typeof input.prefs === 'object' && JSON.stringify(input.prefs).length < 4000 ? input.prefs : undefined
   const m = {
     id: `acc_${crypto.randomBytes(5).toString('hex')}`, role, name,
     handle: clean(input.handle, 40) || '@' + name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, ''),
-    email: role === 'creator' ? email : undefined,
+    email,
     city: clean(input.city, 60) || undefined,
     region: { country: geo.country || null, region: geo.region || null, city: geo.city || null, source: geo.country ? 'network' : 'unknown' },
     interests: role === 'reader' ? list(input.interests, 10) : undefined,
@@ -167,14 +185,51 @@ export async function createAccount(input, geo) {
     socials: list(input.socials, 6, 20),
     premium: role === 'reader' ? !!input.premium : undefined,
     reportFreq: role === 'reader' && ['weekly', 'monthly'].includes(input.reportFreq) ? input.reportFreq : undefined,
-    consent: { version: 'v1', at: now, purposes: ['account', 'personalisation', ...(role === 'creator' ? ['sign-in email', 'agent directory'] : []), ...(input.premium ? ['report email'] : [])] },
+    prefs: role === 'reader' ? prefs : undefined,
+    saved: role === 'reader' ? list(input.saved, 200, 60) : undefined,
+    consent: { version: 'v1', at: now, purposes: ['account', 'sign-in', 'personalisation', ...(role === 'creator' ? ['agent directory'] : []), ...(input.premium ? ['report email'] : [])] },
     createdAt: now, updatedAt: now,
+    passwordHash: hashPassword(password),
     tokenHash: sha(deleteToken),
+    sessions: [sha(sessionToken)],
   }
   for (const k of Object.keys(m)) if (m[k] === undefined) delete m[k]
   m.stored = manifest(m)
   const { lsn } = await write('insert', m)
-  return { account: toHuman(m), manifest: m.stored, deleteToken, lsn }
+  return { account: toHuman(m), private: privateView(m), manifest: m.stored, deleteToken, sessionToken, lsn }
+}
+
+// What the account owner gets back after sign-in: their own data, never hashes.
+export function privateView(m) {
+  const out = {}
+  for (const [k, v] of Object.entries(m)) if (!SECRET.has(k)) out[k] = v
+  return out
+}
+
+export async function login(input) {
+  const role = input.role === 'creator' ? 'creator' : 'reader'
+  const email = clean(input.email, 120).toLowerCase()
+  const d = await load()
+  const m = Object.values(d.master).find((x) => x.role === role && x.email === email)
+  if (!m) throw err(404, `No ${role} account for ${email}.`)
+  if (!m.passwordHash) throw err(409, 'This account was created before passwords existed. Create a new account with the same email after deleting this one.')
+  if (!checkPassword(input.password, m.passwordHash)) throw err(401, 'That email and password don’t match.')
+  const deleteToken = crypto.randomBytes(18).toString('base64url')
+  const sessionToken = crypto.randomBytes(24).toString('base64url')
+  const next = { ...m, tokenHash: sha(deleteToken), sessions: [sha(sessionToken), ...(m.sessions || [])].slice(0, 5), lastSignIn: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  next.stored = manifest(next)
+  await write('update', next)
+  return { private: privateView(next), deleteToken, sessionToken }
+}
+
+export async function saveSaved(input) {
+  const d = await load()
+  const m = d.master[String(input.id || '')]
+  if (!m || !(m.sessions || []).includes(sha(String(input.sessionToken || '')))) throw err(401, 'Sign in again to sync your saved stories.')
+  const next = { ...m, saved: list(input.saved, 200, 60), updatedAt: new Date().toISOString() }
+  next.stored = manifest(next)
+  const { lsn } = await write('update', next)
+  return { saved: next.saved, lsn }
 }
 
 export async function deleteAccount(id, tokenGiven, isAdmin) {
@@ -210,7 +265,7 @@ export async function readView(view, { admin = false } = {}) {
   if (view === 'agent') return { status, view: 'agent_replica', rows: byNewest(d.replicas.agent.rows, 'joined') }
   if (view === 'log') return { status, view: 'replication_log', rows: d.log.slice(-50).reverse().map((e) => ({ lsn: e.lsn, op: e.op, id: e.id, ts: e.ts, role: e.row?.role, name: e.row?.name })) }
   // master: full rows for the admin key, masked otherwise
-  const rows = byNewest(d.master, 'createdAt').map(({ tokenHash, ...m }) => (admin ? m : { ...m, email: maskEmail(m.email) }))
+  const rows = byNewest(d.master, 'createdAt').map((m) => { const v = privateView(m); if (v.saved) v.saved = `${v.saved.length} stories`; if (v.prefs) v.prefs = 'feed settings'; v.password = m.passwordHash ? 'salted scrypt hash (hidden)' : 'none'; return admin ? v : { ...v, email: maskEmail(v.email) } })
   return { status, view: 'master', masked: !admin, rows }
 }
 
